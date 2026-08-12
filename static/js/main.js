@@ -412,39 +412,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Build Current Layout Sequence with Fixed Pair Structure and Independent Copy Counts
+    // Build Current Layout Sequence for ALL Uploaded Items in Pair Mode
     function buildSequence() {
         const mode = layoutModeSelect.value;
         let seq = [];
 
-        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
-            const topCandidates = loadedItems.filter(it => !it.filename.toUpperCase().includes('BOT') && !it.filename.toUpperCase().includes('BOTTOM'));
-            const botCandidates = loadedItems.filter(it => it.filename.toUpperCase().includes('BOT') || it.filename.toUpperCase().includes('BOTTOM'));
-
-            let topItem = (topCandidates.length > 0 && botCandidates.length > 0) ? topCandidates[0] : loadedItems[0];
-            let botItem = (topCandidates.length > 0 && botCandidates.length > 0) ? botCandidates[0] : loadedItems[1];
-
-            const maxCopies = Math.max(topItem.copies || 1, botItem.copies || 1);
-
-            for (let i = 0; i < maxCopies; i++) {
-                if (i < (topItem.copies || 1)) {
-                    seq.push({
-                        item: topItem,
-                        is_pair_start: true,
-                        is_pair_end: false,
-                        label: `${topItem.filename} (Pasangan #${i+1} TOP)`
-                    });
-                }
-
-                if (i < (botItem.copies || 1)) {
-                    seq.push({
-                        item: botItem,
-                        is_pair_start: false,
-                        is_pair_end: true,
-                        label: `${botItem.filename} (Pasangan #${i+1} BOT)`
-                    });
+        if (mode === 'pair_top_bot') {
+            // Group ALL loaded items into consecutive pairs: (0,1), (2,3), (4,5)...
+            let pairsList = [];
+            let idx = 0;
+            while (idx < loadedItems.length) {
+                const itemA = loadedItems[idx];
+                if (idx + 1 < loadedItems.length) {
+                    const itemB = loadedItems[idx + 1];
+                    pairsList.push([itemA, itemB]);
+                    idx += 2;
+                } else {
+                    pairsList.push([itemA, null]);
+                    idx += 1;
                 }
             }
+
+            pairsList.forEach(pairGroup => {
+                const itemA = pairGroup[0];
+                const itemB = pairGroup[1];
+                const copiesA = itemA.copies || 1;
+                const copiesB = itemB ? (itemB.copies || 1) : 0;
+                const maxC = Math.max(copiesA, copiesB);
+
+                for (let c = 0; c < maxC; c++) {
+                    if (c < copiesA) {
+                        seq.push({
+                            item: itemA,
+                            is_pair_start: (itemB !== null),
+                            is_pair_end: false,
+                            label: `${itemA.filename} (Hal. ${itemA.page_num})`
+                        });
+                    }
+
+                    if (itemB && c < copiesB) {
+                        seq.push({
+                            item: itemB,
+                            is_pair_start: false,
+                            is_pair_end: true,
+                            label: `${itemB.filename} (Hal. ${itemB.page_num})`
+                        });
+                    }
+                }
+            });
         } else {
             loadedItems.forEach(item => {
                 for (let c = 0; c < item.copies; c++) {

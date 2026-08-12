@@ -21,9 +21,8 @@ class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
     Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
-    Pair Patterning: TOP (7 spaces) BOT [Dashed Cut Line] TOP (7 spaces) BOT,
+    Universal Multi-Pair Patterning (Item 0 & 1, Item 2 & 3, Item 4 & 5...),
     Horizontal Auto-Centering (Center), Row Spacing, and Cut Line Generation.
-    Supports Independent Copy Inputs with Fixed Pair Layout Structure.
     """
 
     @staticmethod
@@ -118,41 +117,48 @@ class PCBProcessor:
         sequence = []
         slot_idx = 0
 
-        if layout_mode == "pair_top_bot" and len(items) >= 2:
-            top_candidates = [it for it in items if "BOT" not in it.get("label", "").upper() and "BOTTOM" not in it.get("label", "").upper()]
-            bot_candidates = [it for it in items if "BOT" in it.get("label", "").upper() or "BOTTOM" in it.get("label", "").upper()]
+        if layout_mode == "pair_top_bot":
+            # Group ALL uploaded items into pairs: (Item 0, Item 1), (Item 2, Item 3), (Item 4, Item 5)...
+            pairs_list = []
+            idx = 0
+            while idx < len(items):
+                item_a = items[idx]
+                if idx + 1 < len(items):
+                    item_b = items[idx + 1]
+                    idx += 2
+                else:
+                    item_b = None
+                    idx += 1
+                pairs_list.append((item_a, item_b))
 
-            if top_candidates and bot_candidates:
-                top_item = top_candidates[0]
-                bot_item = bot_candidates[0]
-            else:
-                top_item = items[0]
-                bot_item = items[1]
+            # Build sequence for ALL pair groups
+            for item_a, item_b in pairs_list:
+                copies_a = item_a.get("copies", 1)
+                copies_b = item_b.get("copies", 1) if item_b else 0
+                max_c = max(copies_a, copies_b)
 
-            max_copies = max(top_item.get("copies", 1), bot_item.get("copies", 1))
+                for c in range(max_c):
+                    if c < copies_a:
+                        vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                        sequence.append({
+                            "item": item_a,
+                            "is_pair_start": (item_b is not None),
+                            "is_pair_end": False,
+                            "visible": vis_a,
+                            "slot_index": slot_idx
+                        })
+                        slot_idx += 1
 
-            for i in range(max_copies):
-                if i < top_item.get("copies", 1):
-                    vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
-                    sequence.append({
-                        "item": top_item,
-                        "is_pair_start": True,
-                        "is_pair_end": False,
-                        "visible": vis_a,
-                        "slot_index": slot_idx
-                    })
-                    slot_idx += 1
-
-                if i < bot_item.get("copies", 1):
-                    vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
-                    sequence.append({
-                        "item": bot_item,
-                        "is_pair_start": False,
-                        "is_pair_end": True,
-                        "visible": vis_b,
-                        "slot_index": slot_idx
-                    })
-                    slot_idx += 1
+                    if item_b and c < copies_b:
+                        vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                        sequence.append({
+                            "item": item_b,
+                            "is_pair_start": False,
+                            "is_pair_end": True,
+                            "visible": vis_b,
+                            "slot_index": slot_idx
+                        })
+                        slot_idx += 1
         else:
             for item in items:
                 for c in range(item.get("copies", 1)):

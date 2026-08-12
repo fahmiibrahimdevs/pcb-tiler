@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let validCount = 0;
 
         for (let i = 0; i < files.length; i++) {
-            if (files[i].name.toLowerCase().endswith('.pdf')) {
+            if (files[i].name.toLowerCase().endsWith('.pdf')) {
                 formData.append('pdf_files', files[i]);
                 validCount++;
             }

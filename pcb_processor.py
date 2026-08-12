@@ -21,8 +21,9 @@ class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
     Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
-    Pair Patterning: TOP (7 spaces) BOT [Dashed Cut Line] TOP (7 spaces) BOT,
+    Pair Patterning (7 spaces inside pair, dashed cut line between pairs),
     Horizontal Auto-Centering (Center), Row Spacing, and Cut Line Generation.
+    Supports Universal N-File Multi-Design Pairing and Automatic Line Wrapping.
     """
 
     @staticmethod
@@ -117,40 +118,43 @@ class PCBProcessor:
         sequence = []
         slot_idx = 0
 
-        if layout_mode == "pair_top_bot" and len(items) >= 2:
-            # Detect TOP item and BOT item
-            top_candidates = [it for it in items if "BOT" not in it.get("label", "").upper() and "BOTTOM" not in it.get("label", "").upper()]
-            bot_candidates = [it for it in items if "BOT" in it.get("label", "").upper() or "BOTTOM" in it.get("label", "").upper()]
+        if layout_mode == "pair_top_bot":
+            # Universal N-file sequential unit builder: preserves ALL uploaded files & copies
+            all_units = []
+            for item in items:
+                copies = item.get("copies", 1)
+                for _ in range(copies):
+                    all_units.append(item)
 
-            if top_candidates and bot_candidates:
-                top_item = top_candidates[0]
-                bot_item = bot_candidates[0]
-            else:
-                top_item = items[0]
-                bot_item = items[1]
-
-            total_pairs = min(top_item.get("copies", 1), bot_item.get("copies", 1))
-
-            for i in range(total_pairs):
+            i = 0
+            while i < len(all_units):
+                is_pair = (i + 1 < len(all_units))
+                item_a = all_units[i]
+                
                 vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
                 sequence.append({
-                    "item": top_item,
-                    "is_pair_start": True,
+                    "item": item_a,
+                    "is_pair_start": is_pair,
                     "is_pair_end": False,
                     "visible": vis_a,
                     "slot_index": slot_idx
                 })
                 slot_idx += 1
 
-                vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
-                sequence.append({
-                    "item": bot_item,
-                    "is_pair_start": False,
-                    "is_pair_end": True,
-                    "visible": vis_b,
-                    "slot_index": slot_idx
-                })
-                slot_idx += 1
+                if is_pair:
+                    item_b = all_units[i + 1]
+                    vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                    sequence.append({
+                        "item": item_b,
+                        "is_pair_start": False,
+                        "is_pair_end": True,
+                        "visible": vis_b,
+                        "slot_index": slot_idx
+                    })
+                    slot_idx += 1
+                    i += 2
+                else:
+                    i += 1
         else:
             for item in items:
                 for c in range(item.get("copies", 1)):
@@ -187,6 +191,7 @@ class PCBProcessor:
                 else:
                     gap_before = tab_gap_mm
 
+            # Check if item overflows current row width, wrap to new row if needed
             if current_w + gap_before + w_mm > printable_w_mm + 0.1:
                 rows.append(current_row)
                 current_row = []
@@ -351,7 +356,6 @@ class PCBProcessor:
                 h_mm = item["height_mm"]
                 gap_before = entry["gap_before"]
 
-                # Draw bold 1.8pt vertical cut line centered in TAB gap between pairs (after BOT)
                 if show_cut_lines and entry_idx > 0 and (layout_mode != "pair_top_bot" or is_start):
                     cut_x = (curr_x_mm + (gap_before / 2.0)) * reportlab_mm
                     c.saveState()

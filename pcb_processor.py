@@ -21,15 +21,11 @@ class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
     Grid Layout Tiling, Pair Patterning, Horizontal Auto-Centering (Center),
-    and Exporting to PDF & DOCX.
+    Row Spacing, and Cut Line Generation.
     """
 
     @staticmethod
     def inspect_pdf(pdf_bytes: bytes) -> dict:
-        """
-        Inspects PDF bytes and extracts PCB dimensions, bounding boxes,
-        and high-res previews for each page.
-        """
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         pages_info = []
 
@@ -82,9 +78,6 @@ class PCBProcessor:
 
     @staticmethod
     def render_pcb_image(pdf_bytes: bytes, page_num: int = 1, crop_content: bool = True, mirror: bool = False) -> tuple:
-        """
-        Renders a specific PCB PDF page into a high-DPI (300 DPI) PIL Image and returns (PIL.Image, width_mm, height_mm).
-        """
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         if page_num < 1 or page_num > len(doc):
             page_num = 1
@@ -189,10 +182,6 @@ class PCBProcessor:
         show_cut_lines: bool = True,
         auto_center: bool = True
     ) -> bytes:
-        """
-        Generates a DOCX document formatted on A4 paper with Narrow margins.
-        Paragraphs aligned horizontally to Center.
-        """
         doc = Document()
         
         section = doc.sections[0]
@@ -241,8 +230,21 @@ class PCBProcessor:
                 run_img = p.add_run()
                 run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
 
+                # Add dashed cut line text guideline between pairs in row
                 if show_cut_lines and is_end and entry_idx < len(row) - 1:
-                    p.add_run("  ┆  ")
+                    run_cut = p.add_run("  ┆  ")
+                    run_cut.font.color.rgb = docx_color_gray = None
+
+            # Add horizontal cut line paragraph between rows if cut lines enabled
+            if show_cut_lines and row_idx < len(rows) - 1:
+                p_cut = doc.add_paragraph()
+                if auto_center:
+                    p_cut.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_cut.paragraph_format.space_before = Pt(0)
+                p_cut.paragraph_format.space_after = Pt(0)
+                run_line = p_cut.add_run("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+                run_line.font.size = Pt(8)
+                run_line.font.name = 'Courier New'
 
         output_buf = io.BytesIO()
         doc.save(output_buf)
@@ -259,10 +261,6 @@ class PCBProcessor:
         show_cut_lines: bool = True,
         auto_center: bool = True
     ) -> bytes:
-        """
-        Generates a 1:1 scale Print-Ready PDF on A4 paper using ReportLab.
-        Horizontal Center alignment per row, starting from Top margin.
-        """
         output_buf = io.BytesIO()
         c = canvas.Canvas(output_buf, pagesize=A4)
         
@@ -275,7 +273,6 @@ class PCBProcessor:
             max_h = max(entry["item"]["height_mm"] for entry in row)
             row_heights.append(max_h)
 
-        # Starts from Top margin (no vertical middle offset)
         curr_y_mm = A4_HEIGHT_MM - margin_mm
 
         for row_idx, row in enumerate(rows):
@@ -325,16 +322,27 @@ class PCBProcessor:
                     mask='auto'
                 )
 
+                # Draw vertical dashed cut line between pairs in row
                 if show_cut_lines and is_end and entry != row[-1]:
                     c.saveState()
                     c.setDash(2, 3)
                     c.setStrokeColor(colors.HexColor('#94a3b8'))
                     c.setLineWidth(0.4)
                     cut_x = (curr_x_mm + w_mm + (tab_gap_mm / 2.0)) * reportlab_mm
-                    c.line(cut_x, (draw_y_mm - 2) * reportlab_mm, cut_x, (curr_y_mm + 2) * reportlab_mm)
+                    c.line(cut_x, (draw_y_mm - 2) * reportlab_mm, cut_x, (curr_y_mm + row_h_mm + 2) * reportlab_mm)
                     c.restoreState()
 
                 curr_x_mm += w_mm
+
+            # Draw horizontal dashed cut line between rows
+            if show_cut_lines and row_idx < len(rows) - 1:
+                c.saveState()
+                c.setDash(2, 3)
+                c.setStrokeColor(colors.HexColor('#cbd5e1'))
+                c.setLineWidth(0.4)
+                cut_y = (draw_y_mm - (row_gap_mm / 2.0)) * reportlab_mm
+                c.line(margin_mm * reportlab_mm, cut_y, (A4_WIDTH_MM - margin_mm) * reportlab_mm, cut_y)
+                c.restoreState()
 
             curr_y_mm -= (row_h_mm + row_gap_mm)
 

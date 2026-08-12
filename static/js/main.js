@@ -233,8 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-Fill Calculation
     function calculateAutoFill(idx) {
         const item = loadedItems[idx];
-        const printableW = 210.0 - (2 * (parseFloat(marginMmInput.value) || 12.7));
-        const printableH = 297.0 - (2 * (parseFloat(marginMmInput.value) || 12.7));
+        const marginMm = parseFloat(marginMmInput.value) || 12.7;
+        const printableW = 210.0 - (2 * marginMm);
+        const printableH = 297.0 - (2 * marginMm);
         const rowGap = parseFloat(rowGapMmSlider.value) || 8.0;
         const colGap = 15.0; // TAB gap
 
@@ -253,17 +254,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const scalePxPerMm = 500.0 / 210.0; // ~2.38 px/mm
         const rowGapPx = (parseFloat(rowGapMmSlider.value) || 8.0) * scalePxPerMm;
+        const marginMm = parseFloat(marginMmInput.value) || 12.7;
+        const printableW_mm = 210.0 - (2 * marginMm);
+
         const mode = layoutModeSelect.value;
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;
-
-        // Horizontal Center only, start from top margin
-        if (autoCenter) {
-            a4GridContainer.style.justifyContent = 'center';
-        } else {
-            a4GridContainer.style.justifyContent = 'flex-start';
-        }
-        a4GridContainer.style.alignContent = 'flex-start';
 
         a4GridContainer.style.rowGap = `${rowGapPx}px`;
 
@@ -279,8 +275,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalPairs = Math.min(topItem.copies, botItem.copies);
 
             for (let i = 0; i < totalPairs; i++) {
-                sequence.push({ item: topItem, is_pair_start: true });
-                sequence.push({ item: botItem, is_pair_end: true });
+                sequence.push({ item: topItem, is_pair_start: true, is_pair_end: false });
+                sequence.push({ item: botItem, is_pair_start: false, is_pair_end: true });
             }
         } else {
             loadedItems.forEach(item => {
@@ -290,44 +286,94 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        let totalPlaced = 0;
+        // Group sequence into rows based on printable width
+        let rows = [];
+        let currentRow = [];
+        let currentW = 0;
 
-        sequence.forEach((entry, idx) => {
+        const pairGapMm = 5.0;  // 7 spaces gap inside pair (~5mm)
+        const tabGapMm = 15.0;  // TAB gap between pairs (~15mm)
+
+        sequence.forEach(entry => {
             const item = entry.item;
-            const itemEl = document.createElement('div');
-            itemEl.className = 'a4-pcb-item';
+            const w_mm = item.width_mm;
             
-            const wPx = item.width_mm * scalePxPerMm;
-            const hPx = item.height_mm * scalePxPerMm;
-            
-            itemEl.style.width = `${wPx}px`;
-            itemEl.style.height = `${hPx}px`;
-            
-            if (mode === 'pair_top_bot' && entry.is_pair_start) {
-                itemEl.style.marginRight = '8px'; // 7 spaces gap
-            } else {
-                itemEl.style.marginRight = '20px'; // TAB gap
+            let gap_before = 0;
+            if (currentW > 0) {
+                gap_before = (mode === 'pair_top_bot' && entry.is_pair_end) ? pairGapMm : tabGapMm;
             }
 
-            const imgEl = document.createElement('img');
-            imgEl.src = item.preview_b64;
-            if (item.mirror) {
-                imgEl.style.transform = 'scaleX(-1)';
-            }
-            
-            itemEl.appendChild(imgEl);
-            a4GridContainer.appendChild(itemEl);
-
-            if (showCutLines && entry.is_pair_end && idx < sequence.length - 1) {
-                const divider = document.createElement('div');
-                divider.className = 'a4-cut-divider';
-                a4GridContainer.appendChild(divider);
+            if (currentW + gap_before + w_mm > printableW_mm + 0.1) {
+                rows.push(currentRow);
+                currentRow = [];
+                currentW = 0;
+                gap_before = 0;
             }
 
-            totalPlaced++;
+            entry.gap_before = gap_before;
+            currentRow.push(entry);
+            currentW += (gap_before + w_mm);
         });
 
-        statCapacity.textContent = `Total Ditempatkan: ${totalPlaced} PCB`;
+        if (currentRow.length > 0) {
+            rows.push(currentRow);
+        }
+
+        let totalPlaced = 0;
+
+        rows.forEach((row, rowIdx) => {
+            const rowEl = document.createElement('div');
+            rowEl.className = 'a4-grid-row';
+            if (autoCenter) {
+                rowEl.style.justifyContent = 'center';
+            } else {
+                rowEl.style.justifyContent = 'flex-start';
+            }
+
+            row.forEach((entry, entryIdx) => {
+                const item = entry.item;
+                const itemEl = document.createElement('div');
+                itemEl.className = 'a4-pcb-item';
+                
+                const wPx = item.width_mm * scalePxPerMm;
+                const hPx = item.height_mm * scalePxPerMm;
+                
+                itemEl.style.width = `${wPx}px`;
+                itemEl.style.height = `${hPx}px`;
+                
+                if (entryIdx > 0) {
+                    const gapPx = entry.gap_before * scalePxPerMm;
+                    itemEl.style.marginLeft = `${gapPx}px`;
+                }
+
+                const imgEl = document.createElement('img');
+                imgEl.src = item.preview_b64;
+                if (item.mirror) {
+                    imgEl.style.transform = 'scaleX(-1)';
+                }
+                
+                itemEl.appendChild(imgEl);
+                rowEl.appendChild(itemEl);
+
+                if (showCutLines && entry.is_pair_end && entryIdx < row.length - 1) {
+                    const divider = document.createElement('div');
+                    divider.className = 'a4-cut-divider-vert';
+                    rowEl.appendChild(divider);
+                }
+
+                totalPlaced++;
+            });
+
+            a4GridContainer.appendChild(rowEl);
+
+            if (showCutLines && rowIdx < rows.length - 1) {
+                const horizDivider = document.createElement('div');
+                horizDivider.className = 'a4-cut-divider-horiz';
+                a4GridContainer.appendChild(horizDivider);
+            }
+        });
+
+        statCapacity.textContent = `Total Ditempatkan: ${totalPlaced} PCB (${rows.length} Baris)`;
     }
 
     // Generate & Download API Request

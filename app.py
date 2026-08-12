@@ -96,7 +96,6 @@ def generate_endpoint():
             override_w = float(item.get('width_mm', 0))
             override_h = float(item.get('height_mm', 0))
             copies = int(item.get('copies', 1))
-            mirror = bool(item.get('mirror', False))
             crop_content = bool(item.get('crop_content', True))
 
             if file_id not in UPLOAD_CACHE:
@@ -106,8 +105,7 @@ def generate_endpoint():
             pil_img, detected_w, detected_h = PCBProcessor.render_pcb_image(
                 pdf_bytes=pdf_bytes,
                 page_num=page_num,
-                crop_content=crop_content,
-                mirror=mirror
+                crop_content=crop_content
             )
 
             final_w = override_w if override_w > 0 else detected_w
@@ -118,7 +116,6 @@ def generate_endpoint():
                 'width_mm': final_w,
                 'height_mm': final_h,
                 'copies': copies,
-                'mirror': mirror,
                 'label': item.get('filename', 'PCB')
             })
 

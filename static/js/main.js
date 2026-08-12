@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     layoutModeSelect.addEventListener('change', (e) => {
         const val = e.target.value;
-        statPattern.textContent = val === 'pair_top_bot' ? 'Pola: TOP + BOT Pair' : 'Pola: Grid Berurutan';
+        statPattern.textContent = val === 'pair_top_bot' ? 'Pola: Pasangan (Top + Bot)' : 'Pola: Grid Berurutan';
         updateLiveA4Preview();
     });
 
@@ -119,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             width_mm: pageInfo.detected_width_mm,
                             height_mm: pageInfo.detected_height_mm,
                             copies: 4, // default 4 copies
-                            mirror: fileData.filename.toUpperCase().includes('BOT') || fileData.filename.toUpperCase().includes('BOTTOM'),
                             preview_b64: pageInfo.preview_b64
                         });
                     });
@@ -154,9 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadedItems.forEach((item, index) => {
             const cardEl = document.createElement('div');
-            cardEl.className = `item-card ${item.mirror ? 'mirror-active' : ''}`;
+            cardEl.className = 'item-card';
             cardEl.innerHTML = `
-                <img src="${item.preview_b64}" class="item-thumb" style="${item.mirror ? 'transform: scaleX(-1);' : ''}" alt="PCB">
+                <img src="${item.preview_b64}" class="item-thumb" alt="PCB">
                 <div class="item-details">
                     <div class="item-title">${item.filename} (Hal. ${item.page_num})</div>
                     
@@ -174,10 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="font-size: 11px; color: var(--text-muted);">Kopi:</span>
                             <input type="number" class="input-num-sm input-copies" data-index="${index}" value="${item.copies}" min="1" max="50">
                         </div>
-                        <label class="toggle-mirror">
-                            <input type="checkbox" class="check-mirror" data-index="${index}" ${item.mirror ? 'checked' : ''}>
-                            <span>🪞 Mirror</span>
-                        </label>
                         <button class="btn-autofill" data-index="${index}" style="margin-left: auto; background: none; border: 1px solid var(--border-color); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;">
                             Auto-Max
                         </button>
@@ -209,15 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inp.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 loadedItems[idx].copies = Math.max(1, parseInt(e.target.value) || 1);
-                updateLiveA4Preview();
-            });
-        });
-
-        document.querySelectorAll('.check-mirror').forEach(chk => {
-            chk.addEventListener('change', (e) => {
-                const idx = parseInt(e.target.dataset.index);
-                loadedItems[idx].mirror = e.target.checked;
-                renderItemsList();
                 updateLiveA4Preview();
             });
         });
@@ -261,23 +247,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;
 
-        // Clear rowGap from flex container to prevent double spacing
         a4GridContainer.style.rowGap = '0px';
 
         let sequence = [];
 
-        if (mode === 'pair_top_bot') {
-            const topItems = loadedItems.filter(it => !it.mirror);
-            const botItems = loadedItems.filter(it => it.mirror);
-
-            const topItem = topItems.length > 0 ? topItems[0] : loadedItems[0];
-            const botItem = botItems.length > 0 ? botItems[0] : loadedItems[0];
-
-            const totalPairs = Math.min(topItem.copies, botItem.copies);
+        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
+            const itemA = loadedItems[0];
+            const itemB = loadedItems[1];
+            const totalPairs = Math.min(itemA.copies, itemB.copies);
 
             for (let i = 0; i < totalPairs; i++) {
-                sequence.push({ item: topItem, is_pair_start: true, is_pair_end: false });
-                sequence.push({ item: botItem, is_pair_start: false, is_pair_end: true });
+                sequence.push({ item: itemA, is_pair_start: true, is_pair_end: false });
+                sequence.push({ item: itemB, is_pair_start: false, is_pair_end: true });
             }
         } else {
             loadedItems.forEach(item => {
@@ -366,9 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const imgEl = document.createElement('img');
                 imgEl.src = item.preview_b64;
-                if (item.mirror) {
-                    imgEl.style.transform = 'scaleX(-1)';
-                }
                 
                 itemEl.appendChild(imgEl);
                 rowEl.appendChild(itemEl);
@@ -378,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             a4GridContainer.appendChild(rowEl);
 
-            // Row vertical spacing logic matching PDF & DOCX exactly:
             if (rowIdx < rows.length - 1) {
                 if (showCutLines) {
                     const halfRowGapPx = rowGapPx / 2.0;
@@ -426,8 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 page_num: item.page_num,
                 width_mm: item.width_mm,
                 height_mm: item.height_mm,
-                copies: item.copies,
-                mirror: item.mirror
+                copies: item.copies
             }))
         };
 

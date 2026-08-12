@@ -23,6 +23,7 @@ class PCBProcessor:
     Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
     Pair Patterning, Horizontal Auto-Centering (Center),
     Row Spacing, Cut Line Generation, and Fixed-Position TEST Mode Slot Toggling.
+    Supports Multi-Design Sequential Pairing and Automatic Line Wrapping.
     """
 
     @staticmethod
@@ -117,31 +118,43 @@ class PCBProcessor:
         sequence = []
         slot_idx = 0
 
-        if layout_mode == "pair_top_bot" and len(items) >= 2:
-            item_a = items[0]
-            item_b = items[1]
-            total_pairs = min(item_a.get("copies", 1), item_b.get("copies", 1))
+        if layout_mode == "pair_top_bot":
+            # Flatten all PCB item copies into sequential units list
+            all_units = []
+            for item in items:
+                copies = item.get("copies", 1)
+                for _ in range(copies):
+                    all_units.append(item)
 
-            for i in range(total_pairs):
+            i = 0
+            while i < len(all_units):
+                is_pair = (i + 1 < len(all_units))
+                item_a = all_units[i]
+                
                 vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
                 sequence.append({
                     "item": item_a,
-                    "is_pair_start": True,
+                    "is_pair_start": is_pair,
                     "is_pair_end": False,
                     "visible": vis_a,
                     "slot_index": slot_idx
                 })
                 slot_idx += 1
 
-                vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
-                sequence.append({
-                    "item": item_b,
-                    "is_pair_start": False,
-                    "is_pair_end": True,
-                    "visible": vis_b,
-                    "slot_index": slot_idx
-                })
-                slot_idx += 1
+                if is_pair:
+                    item_b = all_units[i + 1]
+                    vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                    sequence.append({
+                        "item": item_b,
+                        "is_pair_start": False,
+                        "is_pair_end": True,
+                        "visible": vis_b,
+                        "slot_index": slot_idx
+                    })
+                    slot_idx += 1
+                    i += 2
+                else:
+                    i += 1
         else:
             for item in items:
                 for c in range(item.get("copies", 1)):
@@ -178,6 +191,7 @@ class PCBProcessor:
                 else:
                     gap_before = tab_gap_mm
 
+            # Check if item overflows current row width, wrap to new row if needed
             if current_w + gap_before + w_mm > printable_w_mm + 0.1:
                 rows.append(current_row)
                 current_row = []
@@ -225,7 +239,6 @@ class PCBProcessor:
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
         rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm, gap_spaces=gap_spaces)
 
-        # Create a 1x1 blank white image for invisible slots to preserve exact physical layout in Word
         blank_white_img = Image.new("L", (10, 10), 255)
         blank_buf = io.BytesIO()
         blank_white_img.save(blank_buf, format="PNG")
@@ -274,7 +287,6 @@ class PCBProcessor:
                     img_buf.seek(0)
                     run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
                 else:
-                    # Insert blank shape of exact width/height so positions DO NOT shift
                     run_img.add_picture(io.BytesIO(blank_bytes), width=Mm(w_mm), height=Mm(h_mm))
 
             if show_cut_lines and row_idx < len(rows) - 1:
@@ -345,7 +357,6 @@ class PCBProcessor:
                 h_mm = item["height_mm"]
                 gap_before = entry["gap_before"]
 
-                # Draw bold 1.8pt vertical cut line centered in TAB gap before starting next pair
                 if show_cut_lines and entry_idx > 0 and (layout_mode != "pair_top_bot" or is_start):
                     cut_x = (curr_x_mm + (gap_before / 2.0)) * reportlab_mm
                     c.saveState()
@@ -357,7 +368,6 @@ class PCBProcessor:
 
                 curr_x_mm += gap_before
 
-                # Only draw image if visible is True! If False, leave space blank (fixed coordinates!)
                 if visible:
                     img_buf = io.BytesIO()
                     img.save(img_buf, format="PNG")
@@ -377,7 +387,6 @@ class PCBProcessor:
 
                 curr_x_mm += w_mm
 
-            # Draw bold 1.8pt horizontal dashed cut line between rows
             if show_cut_lines and row_idx < len(rows) - 1:
                 c.saveState()
                 c.setDash(4, 4)

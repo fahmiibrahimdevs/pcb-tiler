@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             detected_h: pageInfo.detected_height_mm,
                             width_mm: pageInfo.detected_width_mm,
                             height_mm: pageInfo.detected_height_mm,
-                            copies: 1, // Default 1 copy (1 row first)
+                            copies: 1, // Default 1 copy per design
                             preview_b64: pageInfo.preview_b64
                         });
                     });
@@ -305,24 +305,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Build Current Layout Sequence
+    // Build Current Layout Sequence for Multi-Design Support
     function buildSequence() {
         const mode = layoutModeSelect.value;
         let seq = [];
 
-        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
-            const itemA = loadedItems[0];
-            const itemB = loadedItems[1];
-            const totalPairs = Math.min(itemA.copies, itemB.copies);
+        if (mode === 'pair_top_bot') {
+            let allUnits = [];
+            loadedItems.forEach(item => {
+                const copies = item.copies || 1;
+                for (let c = 0; c < copies; c++) {
+                    allUnits.push(item);
+                }
+            });
 
-            for (let i = 0; i < totalPairs; i++) {
-                seq.push({ item: itemA, is_pair_start: true, is_pair_end: false, label: `${itemA.filename} (Pasangan #${i+1} TOP)` });
-                seq.push({ item: itemB, is_pair_start: false, is_pair_end: true, label: `${itemB.filename} (Pasangan #${i+1} BOT)` });
+            let i = 0;
+            while (i < allUnits.length) {
+                const isPair = (i + 1 < allUnits.length);
+                const itemA = allUnits[i];
+
+                seq.push({
+                    item: itemA,
+                    is_pair_start: isPair,
+                    is_pair_end: false,
+                    label: `${itemA.filename} (Hal. ${itemA.page_num})`
+                });
+
+                if (isPair) {
+                    const itemB = allUnits[i + 1];
+                    seq.push({
+                        item: itemB,
+                        is_pair_start: false,
+                        is_pair_end: true,
+                        label: `${itemB.filename} (Hal. ${itemB.page_num})`
+                    });
+                    i += 2;
+                } else {
+                    i += 1;
+                }
             }
         } else {
             loadedItems.forEach(item => {
                 for (let c = 0; c < item.copies; c++) {
-                    seq.push({ item: item, is_pair_start: false, is_pair_end: false, label: `${item.filename} (#${c+1})` });
+                    seq.push({
+                        item: item,
+                        is_pair_start: false,
+                        is_pair_end: false,
+                        label: `${item.filename} (Hal. ${item.page_num})`
+                    });
                 }
             });
         }
@@ -376,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Auto-Max Fill 1 Page Calculation
+    // Auto-Max Fill 1 Page Calculation for Multi-Design Layout
     function calculateAutoMaxOnePage() {
         if (loadedItems.length === 0) return;
 
@@ -389,20 +419,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const pairGapMm = (gapSpaces / 7.0) * 5.0;
         const tabGapMm = 15.0;
 
+        let maxW = 0;
+        let maxH = 0;
+        loadedItems.forEach(it => {
+            if (it.width_mm > maxW) maxW = it.width_mm;
+            if (it.height_mm > maxH) maxH = it.height_mm;
+        });
+
         if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
-            const itemA = loadedItems[0];
-            const itemB = loadedItems[1];
-
-            const pairW = itemA.width_mm + pairGapMm + itemB.width_mm;
-            const pairH = Math.max(itemA.height_mm, itemB.height_mm);
-
+            const pairW = (maxW * 2) + pairGapMm;
             const cols = Math.floor((printableW + tabGapMm) / (pairW + tabGapMm));
-            const rows = Math.floor((printableH + rowGap) / (pairH + rowGap));
-
+            const rows = Math.floor((printableH + rowGap) / (maxH + rowGap));
             const maxPairs = Math.max(1, cols * rows);
 
-            loadedItems[0].copies = maxPairs;
-            loadedItems[1].copies = maxPairs;
+            loadedItems.forEach(it => {
+                it.copies = maxPairs;
+            });
         } else {
             loadedItems.forEach(item => {
                 const cols = Math.floor((printableW + tabGapMm) / (item.width_mm + tabGapMm));
@@ -442,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pairGapMm = (gapSpaces / 7.0) * 5.0;
         const tabGapMm = 15.0;
 
-        // Group sequence into rows based on printable width
+        // Group sequence into rows based on printable width with automatic line wrapping
         let rows = [];
         let currentRow = [];
         let currentW = 0;
@@ -523,7 +555,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     itemEl.appendChild(imgEl);
                     totalActivePrinted++;
                 } else {
-                    // Fixed position blank placeholder for hidden slots in TEST mode
                     itemEl.className = 'a4-pcb-item slot-hidden';
                     itemEl.innerHTML = `<span>Slot #${entry.slot_index + 1}<br>(Kosong)</span>`;
                 }

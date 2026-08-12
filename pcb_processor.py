@@ -209,7 +209,13 @@ class PCBProcessor:
                 p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
             p.paragraph_format.space_before = Pt(0)
-            p.paragraph_format.space_after = Pt(row_gap_mm * 2.83465) if row_idx < len(rows) - 1 else Pt(0)
+            
+            # If cut lines enabled, divide row_gap_mm equally before and after horizontal cut line paragraph
+            if show_cut_lines and row_idx < len(rows) - 1:
+                p.paragraph_format.space_after = Pt((row_gap_mm / 2.0) * 2.83465)
+            else:
+                p.paragraph_format.space_after = Pt(row_gap_mm * 2.83465) if row_idx < len(rows) - 1 else Pt(0)
+
             p.paragraph_format.line_spacing = 1.0
 
             for entry_idx, entry in enumerate(row):
@@ -242,7 +248,7 @@ class PCBProcessor:
                 if auto_center:
                     p_cut.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 p_cut.paragraph_format.space_before = Pt(0)
-                p_cut.paragraph_format.space_after = Pt(0)
+                p_cut.paragraph_format.space_after = Pt((row_gap_mm / 2.0) * 2.83465)
                 run_line = p_cut.add_run("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
                 run_line.font.size = Pt(8)
                 run_line.font.name = 'Courier New'
@@ -336,7 +342,7 @@ class PCBProcessor:
 
                 curr_x_mm += w_mm
 
-            # Draw horizontal dashed cut line between rows
+            # Draw horizontal dashed cut line between rows (centered in row_gap_mm)
             if show_cut_lines and row_idx < len(rows) - 1:
                 c.saveState()
                 c.setDash(2, 3)

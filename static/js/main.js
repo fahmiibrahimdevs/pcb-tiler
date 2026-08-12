@@ -261,7 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;
 
-        a4GridContainer.style.rowGap = `${rowGapPx}px`;
+        // Clear rowGap from flex container to prevent double spacing
+        a4GridContainer.style.rowGap = '0px';
 
         let sequence = [];
 
@@ -377,10 +378,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             a4GridContainer.appendChild(rowEl);
 
-            if (showCutLines && rowIdx < rows.length - 1) {
-                const horizDivider = document.createElement('div');
-                horizDivider.className = 'a4-cut-divider-horiz';
-                a4GridContainer.appendChild(horizDivider);
+            // Row vertical spacing logic matching PDF & DOCX exactly:
+            if (rowIdx < rows.length - 1) {
+                if (showCutLines) {
+                    const halfRowGapPx = rowGapPx / 2.0;
+                    const horizDivider = document.createElement('div');
+                    horizDivider.className = 'a4-cut-divider-horiz';
+                    horizDivider.style.marginTop = `${halfRowGapPx}px`;
+                    horizDivider.style.marginBottom = `${halfRowGapPx}px`;
+                    a4GridContainer.appendChild(horizDivider);
+                } else {
+                    rowEl.style.marginBottom = `${rowGapPx}px`;
+                }
             }
         });
 

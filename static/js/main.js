@@ -180,7 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (validCount === 0) {
-            alert('Silakan pilih file berformat PDF.');
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Format Tidak Sesuai',
+                    text: 'Silakan pilih file berformat PDF.',
+                    icon: 'warning',
+                    background: '#1e293b',
+                    color: '#f8fafc',
+                    confirmButtonColor: '#38bdf8'
+                });
+            } else {
+                alert('Silakan pilih file berformat PDF.');
+            }
             return;
         }
 
@@ -213,14 +224,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderSlotsList();
                 updateLiveA4Preview();
             } else {
-                alert(`Error: ${data.error}`);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Error PDF',
+                        text: data.error,
+                        icon: 'error',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        confirmButtonColor: '#ef4444'
+                    });
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
             }
         } catch (err) {
             alert(`Gagal membaca file PDF: ${err.message}`);
         }
     }
 
-    // Render Loaded PCB Items in Sidebar (Mode FINAL)
+    // Render Loaded PCB Items in Sidebar (Mode FINAL) with Delete Button
     function renderItemsList() {
         if (loadedItems.length === 0) {
             itemsCard.classList.add('hidden');
@@ -243,7 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cardEl.innerHTML = `
                 <img src="${item.preview_b64}" class="item-thumb" alt="PCB">
                 <div class="item-details">
-                    <div class="item-title">${item.filename} (Hal. ${item.page_num})</div>
+                    <div class="item-title flex-between">
+                        <span>${item.filename} (Hal. ${item.page_num})</span>
+                        <button class="btn-delete-item" data-index="${index}" style="background: none; border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s;" title="Hapus Desain ini">🗑️ Hapus</button>
+                    </div>
                     
                     <div class="item-dim-inputs">
                         <label>
@@ -301,6 +326,52 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 calculateAutoFill(idx);
+            });
+        });
+
+        // Delete Item Button Listener with SweetAlert2 Confirmation
+        document.querySelectorAll('.btn-delete-item').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.index);
+                const itemToDelete = loadedItems[idx];
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Hapus Desain PCB?',
+                        html: `Apakah Anda yakin ingin menghapus <strong>"${itemToDelete.filename}"</strong> (Hal. ${itemToDelete.page_num})?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ef4444',
+                        cancelButtonColor: '#334155',
+                        confirmButtonText: 'Ya, Hapus!',
+                        cancelButtonText: 'Batal',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            loadedItems.splice(idx, 1);
+                            renderItemsList();
+                            renderSlotsList();
+                            updateLiveA4Preview();
+                            Swal.fire({
+                                title: 'Berhasil Dihapus!',
+                                text: 'Desain PCB telah dihapus dari daftar.',
+                                icon: 'success',
+                                timer: 1400,
+                                showConfirmButton: false,
+                                background: '#1e293b',
+                                color: '#f8fafc'
+                            });
+                        }
+                    });
+                } else {
+                    if (confirm(`Hapus "${itemToDelete.filename}"?`)) {
+                        loadedItems.splice(idx, 1);
+                        renderItemsList();
+                        renderSlotsList();
+                        updateLiveA4Preview();
+                    }
+                }
             });
         });
     }

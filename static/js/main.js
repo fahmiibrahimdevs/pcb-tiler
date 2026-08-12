@@ -376,44 +376,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Build Current Layout Sequence for Multi-Design Support
+    // Build Current Layout Sequence: TOP (7 spaces) BOT [dashed cut line] TOP (7 spaces) BOT
     function buildSequence() {
         const mode = layoutModeSelect.value;
         let seq = [];
 
-        if (mode === 'pair_top_bot') {
-            let allUnits = [];
-            loadedItems.forEach(item => {
-                const copies = item.copies || 1;
-                for (let c = 0; c < copies; c++) {
-                    allUnits.push(item);
-                }
-            });
+        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
+            const topCandidates = loadedItems.filter(it => !it.filename.toUpperCase().includes('BOT') && !it.filename.toUpperCase().includes('BOTTOM'));
+            const botCandidates = loadedItems.filter(it => it.filename.toUpperCase().includes('BOT') || it.filename.toUpperCase().includes('BOTTOM'));
 
-            let i = 0;
-            while (i < allUnits.length) {
-                const isPair = (i + 1 < allUnits.length);
-                const itemA = allUnits[i];
+            let topItem = (topCandidates.length > 0 && botCandidates.length > 0) ? topCandidates[0] : loadedItems[0];
+            let botItem = (topCandidates.length > 0 && botCandidates.length > 0) ? botCandidates[0] : loadedItems[1];
 
+            const totalPairs = Math.min(topItem.copies || 1, botItem.copies || 1);
+
+            for (let i = 0; i < totalPairs; i++) {
                 seq.push({
-                    item: itemA,
-                    is_pair_start: isPair,
+                    item: topItem,
+                    is_pair_start: true,
                     is_pair_end: false,
-                    label: `${itemA.filename} (Hal. ${itemA.page_num})`
+                    label: `${topItem.filename} (Pasangan #${i+1} TOP)`
                 });
 
-                if (isPair) {
-                    const itemB = allUnits[i + 1];
-                    seq.push({
-                        item: itemB,
-                        is_pair_start: false,
-                        is_pair_end: true,
-                        label: `${itemB.filename} (Hal. ${itemB.page_num})`
-                    });
-                    i += 2;
-                } else {
-                    i += 1;
-                }
+                seq.push({
+                    item: botItem,
+                    is_pair_start: false,
+                    is_pair_end: true,
+                    label: `${botItem.filename} (Pasangan #${i+1} BOT)`
+                });
             }
         } else {
             loadedItems.forEach(item => {

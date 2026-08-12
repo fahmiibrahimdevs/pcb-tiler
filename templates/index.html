@@ -23,8 +23,8 @@
                 </div>
             </div>
             <div class="header-badges">
-                <span class="badge badge-success">A4 Horizontal Center</span>
-                <span class="badge badge-info">Multi-PDF & Pairs</span>
+                <span class="badge badge-success">600 DPI Ultra-Sharp</span>
+                <span class="badge badge-info">A4 Horizontal Center</span>
             </div>
         </div>
     </div>
@@ -76,13 +76,13 @@
                         </select>
                     </div>
 
-                    <!-- Row Spacing Slider -->
+                    <!-- Row Spacing Slider (Default 14mm) -->
                     <div class="form-group">
                         <div class="flex-between" style="margin-bottom: 4px;">
                             <label for="rowGapMm">Jarak Antar Baris (Vertikal Row Gap):</label>
-                            <span id="rowGapVal" class="val-badge">8 mm</span>
+                            <span id="rowGapVal" class="val-badge">14 mm</span>
                         </div>
-                        <input type="range" id="rowGapMm" min="0" max="30" step="0.5" value="8" class="form-range">
+                        <input type="range" id="rowGapMm" min="0" max="40" step="0.5" value="14" class="form-range">
                     </div>
 
                     <!-- Horizontal Gap & Margin -->
@@ -125,8 +125,8 @@
                         <div class="format-selector">
                             <label class="format-card active">
                                 <input type="radio" name="exportFormat" value="pdf" checked>
-                                <span class="format-title">PDF Siap Cetak (1:1)</span>
-                                <span class="format-desc">Presisi tinggi 300 DPI, langsung print</span>
+                                <span class="format-title">PDF Siap Cetak (600 DPI)</span>
+                                <span class="format-desc">Tajam murni 1:1, binarized 0% blur</span>
                             </label>
                             <label class="format-card">
                                 <input type="radio" name="exportFormat" value="docx">

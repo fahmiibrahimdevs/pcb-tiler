@@ -69,7 +69,7 @@ def inspect_endpoint():
 @app.route('/api/generate', methods=['POST'])
 def generate_endpoint():
     """
-    Generates PDF or DOCX layout document with pair patterns, row gap, dashed lines, and auto center/middle alignment.
+    Generates PDF or DOCX layout document with 600 DPI binarization, 14mm default row gap, and cut lines.
     """
     try:
         data = request.get_json() or {}
@@ -78,7 +78,7 @@ def generate_endpoint():
         
         gap_spaces = int(data.get('gap_spaces', 7))
         tab_spaces = int(data.get('tab_spaces', 12))
-        row_gap_mm = float(data.get('row_gap_mm', 8.0))
+        row_gap_mm = float(data.get('row_gap_mm', 14.0))
         margin_mm = float(data.get('margin_mm', 12.7))
         show_cut_lines = bool(data.get('show_cut_lines', True))
         auto_center = bool(data.get('auto_center', True))

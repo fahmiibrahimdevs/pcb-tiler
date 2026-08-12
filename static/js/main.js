@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let validCount = 0;
 
         for (let i = 0; i < files.length; i++) {
-            if (files[i].name.toLowerCase().endsWith('.pdf')) {
+            if (files[i].name.toLowerCase().endswith('.pdf')) {
                 formData.append('pdf_files', files[i]);
                 validCount++;
             }
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const marginMm = parseFloat(marginMmInput.value) || 12.7;
         const printableW = 210.0 - (2 * marginMm);
         const printableH = 297.0 - (2 * marginMm);
-        const rowGap = parseFloat(rowGapMmSlider.value) || 8.0;
+        const rowGap = parseFloat(rowGapMmSlider.value) || 14.0;
         const colGap = 15.0; // TAB gap
 
         const cols = Math.floor((printableW + colGap) / (item.width_mm + colGap));
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         a4GridContainer.innerHTML = '';
         
         const scalePxPerMm = 500.0 / 210.0; // ~2.38 px/mm
-        const rowGapPx = (parseFloat(rowGapMmSlider.value) || 8.0) * scalePxPerMm;
+        const rowGapPx = (parseFloat(rowGapMmSlider.value) || 14.0) * scalePxPerMm;
         const marginMm = parseFloat(marginMmInput.value) || 12.7;
         const printableW_mm = 210.0 - (2 * marginMm);
 
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
         const layoutMode = layoutModeSelect.value;
         const gapSpaces = parseInt(gapSpacesInput.value) || 7;
-        const rowGapMm = parseFloat(rowGapMmSlider.value) || 8.0;
+        const rowGapMm = parseFloat(rowGapMmSlider.value) || 14.0;
         const marginMm = parseFloat(marginMmInput.value) || 12.7;
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;

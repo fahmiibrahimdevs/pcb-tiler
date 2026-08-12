@@ -20,7 +20,8 @@ DEFAULT_MARGIN_MM = 12.7
 class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
-    Grid Layout Tiling, Pair Patterning, Horizontal Auto-Centering (Center),
+    Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
+    Pair Patterning, Horizontal Auto-Centering (Center),
     Row Spacing, and Cut Line Generation.
     """
 
@@ -36,27 +37,36 @@ class PCBProcessor:
             page_w_mm = round(rect.width * 25.4 / 72.0, 2)
             page_h_mm = round(rect.height * 25.4 / 72.0, 2)
 
-            pix = page.get_pixmap(dpi=300)
+            # Render at 600 DPI for high-precision bounding box detection
+            matrix = fitz.Matrix(600 / 72.0, 600 / 72.0)
+            pix = page.get_pixmap(matrix=matrix)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
             
             gray = img.convert("L")
-            bw = gray.point(lambda p: 255 if p < 250 else 0)
+            # Pure Binarization: threshold 220 (pure black/white, no gray blur)
+            bw = gray.point(lambda p: 255 if p < 220 else 0)
             bbox = bw.getbbox()
 
             if bbox:
                 left, top, right, bottom = bbox
                 crop_w_px = right - left
                 crop_h_px = bottom - top
-                crop_w_mm = round((crop_w_px / 300.0) * 25.4, 2)
-                crop_h_mm = round((crop_h_px / 300.0) * 25.4, 2)
+                crop_w_mm = round((crop_w_px / 600.0) * 25.4, 2)
+                crop_h_mm = round((crop_h_px / 600.0) * 25.4, 2)
+                
+                # Crop actual PCB drawing
                 cropped_img = img.crop(bbox)
             else:
                 crop_w_mm = page_w_mm
                 crop_h_mm = page_h_mm
                 cropped_img = img
 
+            # Apply 1-bit Binarization for ultra-crisp preview
+            cropped_gray = cropped_img.convert("L")
+            cropped_bw = cropped_gray.point(lambda p: 0 if p < 220 else 255, mode="1")
+
             buffer = io.BytesIO()
-            cropped_img.save(buffer, format="PNG")
+            cropped_bw.save(buffer, format="PNG")
             img_png_bytes = buffer.getvalue()
 
             pages_info.append({
@@ -78,12 +88,17 @@ class PCBProcessor:
 
     @staticmethod
     def render_pcb_image(pdf_bytes: bytes, page_num: int = 1, crop_content: bool = True, mirror: bool = False) -> tuple:
+        """
+        Renders PCB PDF page at 600 DPI with pure Binarization (#000000 black, #FFFFFF white) for zero blur.
+        """
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         if page_num < 1 or page_num > len(doc):
             page_num = 1
         page = doc[page_num - 1]
 
-        pix = page.get_pixmap(dpi=300)
+        # 600 DPI rendering for ultra-sharp tracks & pads
+        matrix = fitz.Matrix(600 / 72.0, 600 / 72.0)
+        pix = page.get_pixmap(matrix=matrix)
         img = Image.open(io.BytesIO(pix.tobytes("png")))
 
         rect = page.rect
@@ -92,19 +107,23 @@ class PCBProcessor:
 
         if crop_content:
             gray = img.convert("L")
-            bw = gray.point(lambda p: 255 if p < 250 else 0)
+            bw = gray.point(lambda p: 255 if p < 220 else 0)
             bbox = bw.getbbox()
             if bbox:
                 left, top, right, bottom = bbox
-                w_mm = round(((right - left) / 300.0) * 25.4, 2)
-                h_mm = round(((bottom - top) / 300.0) * 25.4, 2)
+                w_mm = round(((right - left) / 600.0) * 25.4, 2)
+                h_mm = round(((bottom - top) / 600.0) * 25.4, 2)
                 img = img.crop(bbox)
 
+        # Apply 1-bit Binarization (Pure Black & White, zero anti-aliasing blur)
+        img_gray = img.convert("L")
+        img_bw = img_gray.point(lambda p: 0 if p < 220 else 255, mode="1")
+
         if mirror:
-            img = ImageOps.mirror(img)
+            img_bw = ImageOps.mirror(img_bw)
 
         doc.close()
-        return img, round(w_mm, 2), round(h_mm, 2)
+        return img_bw, round(w_mm, 2), round(h_mm, 2)
 
     @staticmethod
     def _build_sequence(items: list, layout_mode: str) -> list:
@@ -176,7 +195,7 @@ class PCBProcessor:
         items: list,
         gap_spaces: int = 7,
         tab_spaces: int = 12,
-        row_gap_mm: float = 8.0,
+        row_gap_mm: float = 14.0,
         margin_mm: float = DEFAULT_MARGIN_MM,
         layout_mode: str = "pair_top_bot",
         show_cut_lines: bool = True,
@@ -210,7 +229,6 @@ class PCBProcessor:
 
             p.paragraph_format.space_before = Pt(0)
             
-            # If cut lines enabled, divide row_gap_mm equally before and after horizontal cut line paragraph
             if show_cut_lines and row_idx < len(rows) - 1:
                 p.paragraph_format.space_after = Pt((row_gap_mm / 2.0) * 2.83465)
             else:
@@ -242,7 +260,6 @@ class PCBProcessor:
                 run_img = p.add_run()
                 run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
 
-            # Add horizontal cut line paragraph between rows if cut lines enabled
             if show_cut_lines and row_idx < len(rows) - 1:
                 p_cut = doc.add_paragraph()
                 if auto_center:
@@ -262,7 +279,7 @@ class PCBProcessor:
         items: list,
         gap_spaces: int = 7,
         tab_gap_mm: float = 15.0,
-        row_gap_mm: float = 8.0,
+        row_gap_mm: float = 14.0,
         margin_mm: float = DEFAULT_MARGIN_MM,
         layout_mode: str = "pair_top_bot",
         show_cut_lines: bool = True,

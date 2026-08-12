@@ -5,8 +5,6 @@ from PIL import Image, ImageOps
 from docx import Document
 from docx.shared import Mm, Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -22,7 +20,7 @@ DEFAULT_MARGIN_MM = 12.7
 class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
-    Grid Layout Tiling, Pair Patterning, Auto-Centering (Center & Middle),
+    Grid Layout Tiling, Pair Patterning, Horizontal Auto-Centering (Center),
     and Exporting to PDF & DOCX.
     """
 
@@ -38,20 +36,16 @@ class PCBProcessor:
         for page_num in range(len(doc)):
             page = doc[page_num]
 
-            # Standard page dimensions (in points: 72 points = 1 inch = 25.4 mm)
             rect = page.rect
             page_w_mm = round(rect.width * 25.4 / 72.0, 2)
             page_h_mm = round(rect.height * 25.4 / 72.0, 2)
 
-            # Try to detect actual non-white drawing bounding box
             pix = page.get_pixmap(dpi=300)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
             
-            # Convert to grayscale for bounding box detection
             gray = img.convert("L")
-            # Find non-white pixels (threshold 250)
             bw = gray.point(lambda p: 255 if p < 250 else 0)
-            bbox = bw.getbbox() # (left, top, right, bottom)
+            bbox = bw.getbbox()
 
             if bbox:
                 left, top, right, bottom = bbox
@@ -59,15 +53,12 @@ class PCBProcessor:
                 crop_h_px = bottom - top
                 crop_w_mm = round((crop_w_px / 300.0) * 25.4, 2)
                 crop_h_mm = round((crop_h_px / 300.0) * 25.4, 2)
-                
-                # Crop actual PCB drawing
                 cropped_img = img.crop(bbox)
             else:
                 crop_w_mm = page_w_mm
                 crop_h_mm = page_h_mm
                 cropped_img = img
 
-            # Convert preview to base64 or PNG bytes
             buffer = io.BytesIO()
             cropped_img.save(buffer, format="PNG")
             img_png_bytes = buffer.getvalue()
@@ -124,9 +115,6 @@ class PCBProcessor:
 
     @staticmethod
     def _build_sequence(items: list, layout_mode: str) -> list:
-        """
-        Helper to flatten PCB items into ordered sequence based on layout_mode.
-        """
         sequence = []
         if layout_mode == "pair_top_bot":
             top_items = [it for it in items if not it.get("mirror", False)]
@@ -154,9 +142,6 @@ class PCBProcessor:
 
     @staticmethod
     def _group_sequence_into_rows(sequence: list, layout_mode: str, printable_w_mm: float) -> list:
-        """
-        Helper to group items sequence into rows fitting within printable_w_mm.
-        """
         pair_gap_mm = 5.0   # 7 spaces gap inside pair
         tab_gap_mm = 15.0   # TAB gap between pairs/units
 
@@ -178,7 +163,6 @@ class PCBProcessor:
                     gap_before = tab_gap_mm
 
             if current_w + gap_before + w_mm > printable_w_mm + 0.1:
-                # End current row and start new
                 rows.append(current_row)
                 current_row = []
                 current_w = 0.0
@@ -207,11 +191,10 @@ class PCBProcessor:
     ) -> bytes:
         """
         Generates a DOCX document formatted on A4 paper with Narrow margins.
-        Automatically centers paragraphs horizontally (Center) and page vertically (Middle).
+        Paragraphs aligned horizontally to Center.
         """
         doc = Document()
         
-        # Configure A4 Page & Narrow Margins
         section = doc.sections[0]
         section.page_width = Mm(A4_WIDTH_MM)
         section.page_height = Mm(A4_HEIGHT_MM)
@@ -220,14 +203,8 @@ class PCBProcessor:
         section.left_margin = Mm(margin_mm)
         section.right_margin = Mm(margin_mm)
 
-        # Enable Vertical Middle Alignment in MS Word
-        if auto_center:
-            vAlign = OxmlElement('w:vAlign')
-            vAlign.set(qn('w:val'), 'center')
-            section._sectPr.append(vAlign)
-
         spaces_str = " " * gap_spaces
-        tab_str = " " * tab_spaces  # Tab spacing between pairs
+        tab_str = " " * tab_spaces
 
         sequence = PCBProcessor._build_sequence(items, layout_mode)
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
@@ -284,7 +261,7 @@ class PCBProcessor:
     ) -> bytes:
         """
         Generates a 1:1 scale Print-Ready PDF on A4 paper using ReportLab.
-        Automatically centers content horizontally (Center) and vertically (Middle).
+        Horizontal Center alignment per row, starting from Top margin.
         """
         output_buf = io.BytesIO()
         c = canvas.Canvas(output_buf, pagesize=A4)
@@ -293,31 +270,28 @@ class PCBProcessor:
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
         rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm)
 
-        # Calculate row height for each row
         row_heights = []
         for row in rows:
             max_h = max(entry["item"]["height_mm"] for entry in row)
             row_heights.append(max_h)
 
-        total_grid_height_mm = sum(row_heights) + ((len(rows) - 1) * row_gap_mm) if rows else 0.0
-
-        # Calculate starting top Y coordinate for vertical middle centering
-        if auto_center and total_grid_height_mm < A4_HEIGHT_MM:
-            start_y_mm = (A4_HEIGHT_MM + total_grid_height_mm) / 2.0
-        else:
-            start_y_mm = A4_HEIGHT_MM - margin_mm
-
-        curr_y_mm = start_y_mm
+        # Starts from Top margin (no vertical middle offset)
+        curr_y_mm = A4_HEIGHT_MM - margin_mm
 
         for row_idx, row in enumerate(rows):
             row_h_mm = row_heights[row_idx]
             
+            # Check page overflow
+            if curr_y_mm - row_h_mm < margin_mm - 0.1:
+                c.showPage()
+                curr_y_mm = A4_HEIGHT_MM - margin_mm
+
             # Calculate total width of this row (items + gaps)
             total_row_w_mm = 0.0
             for idx, entry in enumerate(row):
                 total_row_w_mm += (entry["gap_before"] + entry["item"]["width_mm"])
 
-            # Calculate starting left X coordinate for horizontal center alignment
+            # Horizontal Center alignment
             if auto_center and total_row_w_mm < A4_WIDTH_MM:
                 curr_x_mm = (A4_WIDTH_MM - total_row_w_mm) / 2.0
             else:
@@ -335,7 +309,6 @@ class PCBProcessor:
 
                 curr_x_mm += gap_before
 
-                # Convert PIL image to PNG bytes
                 img_buf = io.BytesIO()
                 img.save(img_buf, format="PNG")
                 img_buf.seek(0)
@@ -352,7 +325,6 @@ class PCBProcessor:
                     mask='auto'
                 )
 
-                # Draw dashed cut lines between pairs
                 if show_cut_lines and is_end and entry != row[-1]:
                     c.saveState()
                     c.setDash(2, 3)

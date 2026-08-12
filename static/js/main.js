@@ -257,13 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;
 
+        // Horizontal Center only, start from top margin
         if (autoCenter) {
             a4GridContainer.style.justifyContent = 'center';
-            a4GridContainer.style.alignContent = 'center';
         } else {
             a4GridContainer.style.justifyContent = 'flex-start';
-            a4GridContainer.style.alignContent = 'flex-start';
         }
+        a4GridContainer.style.alignContent = 'flex-start';
 
         a4GridContainer.style.rowGap = `${rowGapPx}px`;
 

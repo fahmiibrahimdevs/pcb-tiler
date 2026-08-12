@@ -123,14 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             detected_h: pageInfo.detected_height_mm,
                             width_mm: pageInfo.detected_width_mm,
                             height_mm: pageInfo.detected_height_mm,
-                            copies: 4, // default 4 copies
+                            copies: 1, // Default 1 copy (1 row first)
                             preview_b64: pageInfo.preview_b64
                         });
                     });
                 });
 
                 renderItemsList();
-                calculateAutoMaxOnePage(); // Auto calculate 1 page capacity on load!
+                updateLiveA4Preview(); // Render 1 row initially!
             } else {
                 alert(`Error: ${data.error}`);
             }

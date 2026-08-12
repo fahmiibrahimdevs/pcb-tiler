@@ -37,7 +37,6 @@ class PCBProcessor:
             page_w_mm = round(rect.width * 25.4 / 72.0, 2)
             page_h_mm = round(rect.height * 25.4 / 72.0, 2)
 
-            # Render at 600 DPI for high-precision bounding box detection
             matrix = fitz.Matrix(600 / 72.0, 600 / 72.0)
             pix = page.get_pixmap(matrix=matrix)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
@@ -234,7 +233,8 @@ class PCBProcessor:
                         p.add_run(spaces_str)
                     else:
                         if show_cut_lines:
-                            p.add_run(tab_left_str + "┆" + tab_right_str)
+                            run_v = p.add_run(tab_left_str + "┆" + tab_right_str)
+                            run_v.font.bold = True
                         else:
                             p.add_run(" " * tab_spaces)
 
@@ -248,8 +248,9 @@ class PCBProcessor:
                 p_cut.paragraph_format.space_before = Pt(0)
                 p_cut.paragraph_format.space_after = Pt((row_gap_mm / 2.0) * 2.83465)
                 run_line = p_cut.add_run("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
-                run_line.font.size = Pt(8)
+                run_line.font.size = Pt(9)
                 run_line.font.name = 'Courier New'
+                run_line.font.bold = True
 
         output_buf = io.BytesIO()
         doc.save(output_buf)
@@ -306,13 +307,14 @@ class PCBProcessor:
                 h_mm = item["height_mm"]
                 gap_before = entry["gap_before"]
 
+                # Draw thicker vertical cut line centered in TAB gap before starting next pair
                 if show_cut_lines and entry_idx > 0 and (layout_mode != "pair_top_bot" or is_start):
                     cut_x = (curr_x_mm + (gap_before / 2.0)) * reportlab_mm
                     c.saveState()
-                    c.setDash(2, 3)
-                    c.setStrokeColor(colors.HexColor('#94a3b8'))
-                    c.setLineWidth(0.4)
-                    c.line(cut_x, (draw_y_mm - 2) * reportlab_mm, cut_x, (curr_y_mm + 2) * reportlab_mm)
+                    c.setDash(3, 3)
+                    c.setStrokeColor(colors.HexColor('#475569'))
+                    c.setLineWidth(0.8) # Thicker 0.8pt line
+                    c.line(cut_x, (draw_y_mm - 3) * reportlab_mm, cut_x, (curr_y_mm + 3) * reportlab_mm)
                     c.restoreState()
 
                 curr_x_mm += gap_before
@@ -335,11 +337,12 @@ class PCBProcessor:
 
                 curr_x_mm += w_mm
 
+            # Draw thicker horizontal dashed cut line between rows
             if show_cut_lines and row_idx < len(rows) - 1:
                 c.saveState()
-                c.setDash(2, 3)
-                c.setStrokeColor(colors.HexColor('#cbd5e1'))
-                c.setLineWidth(0.4)
+                c.setDash(3, 3)
+                c.setStrokeColor(colors.HexColor('#475569'))
+                c.setLineWidth(0.8) # Thicker 0.8pt line
                 cut_y = (draw_y_mm - (row_gap_mm / 2.0)) * reportlab_mm
                 c.line(margin_mm * reportlab_mm, cut_y, (A4_WIDTH_MM - margin_mm) * reportlab_mm, cut_y)
                 c.restoreState()

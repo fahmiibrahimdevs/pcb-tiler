@@ -496,16 +496,17 @@ body {
     display: block;
 }
 
+/* Thicker & Darker Cut Guidelines */
 .a4-cut-divider-vert {
-    border-left: 1px dashed #94a3b8;
-    height: 90%;
+    border-left: 2px dashed #475569;
+    height: 95%;
     align-self: center;
     flex-shrink: 0;
 }
 
 .a4-cut-divider-horiz {
     width: 100%;
-    border-top: 1px dashed #cbd5e1;
+    border-top: 2px dashed #475569;
     margin: 0;
 }
 

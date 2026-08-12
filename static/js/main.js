@@ -286,13 +286,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Calculate dynamic pair gap in mm from spaces input (7 spaces = 5mm -> 0.714mm per space)
+        const gapSpaces = parseInt(gapSpacesInput.value) || 7;
+        const pairGapMm = (gapSpaces / 7.0) * 5.0;
+        const tabGapMm = 15.0;
+
         // Group sequence into rows based on printable width
         let rows = [];
         let currentRow = [];
         let currentW = 0;
-
-        const pairGapMm = 5.0;  // 7 spaces gap inside pair (~5mm)
-        const tabGapMm = 15.0;  // TAB gap between pairs (~15mm)
 
         sequence.forEach(entry => {
             const item = entry.item;

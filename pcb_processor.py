@@ -134,8 +134,8 @@ class PCBProcessor:
         return sequence
 
     @staticmethod
-    def _group_sequence_into_rows(sequence: list, layout_mode: str, printable_w_mm: float) -> list:
-        pair_gap_mm = 5.0   # 7 spaces gap inside pair
+    def _group_sequence_into_rows(sequence: list, layout_mode: str, printable_w_mm: float, gap_spaces: int = 7) -> list:
+        pair_gap_mm = (gap_spaces / 7.0) * 5.0   # Dynamic gap inside pair from spaces input (7 spaces = 5mm)
         tab_gap_mm = 15.0   # TAB gap between pairs/units
 
         rows = []
@@ -199,7 +199,7 @@ class PCBProcessor:
 
         sequence = PCBProcessor._build_sequence(items, layout_mode)
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
-        rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm)
+        rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm, gap_spaces=gap_spaces)
 
         for row_idx, row in enumerate(rows):
             p = doc.add_paragraph()
@@ -267,7 +267,7 @@ class PCBProcessor:
         
         sequence = PCBProcessor._build_sequence(items, layout_mode)
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
-        rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm)
+        rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm, gap_spaces=gap_spaces)
 
         row_heights = []
         for row in rows:

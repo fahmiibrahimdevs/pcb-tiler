@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let gap_before = 0;
             if (currentW > 0) {
-                gap_before = (mode === 'pair_top_bot' && entry.is_pair_end) ? pairGapMm : tabGapMm;
+                gap_before = (mode === 'pair_top_bot' && !entry.is_pair_start) ? pairGapMm : tabGapMm;
             }
 
             if (currentW + gap_before + w_mm > printableW_mm + 0.1) {
@@ -332,6 +332,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             row.forEach((entry, entryIdx) => {
                 const item = entry.item;
+                const isStart = entry.is_pair_start;
+                const gapBeforeMm = entry.gap_before;
+
+                if (entryIdx > 0) {
+                    if (showCutLines && (mode !== 'pair_top_bot' || isStart)) {
+                        // Centered vertical cut line in TAB gap
+                        const halfGapPx = (gapBeforeMm / 2.0) * scalePxPerMm;
+                        const divider = document.createElement('div');
+                        divider.className = 'a4-cut-divider-vert';
+                        divider.style.marginLeft = `${halfGapPx}px`;
+                        divider.style.marginRight = `${halfGapPx}px`;
+                        rowEl.appendChild(divider);
+                    } else {
+                        const gapPx = gapBeforeMm * scalePxPerMm;
+                        const spacer = document.createElement('div');
+                        spacer.style.width = `${gapPx}px`;
+                        rowEl.appendChild(spacer);
+                    }
+                }
+
                 const itemEl = document.createElement('div');
                 itemEl.className = 'a4-pcb-item';
                 
@@ -341,11 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 itemEl.style.width = `${wPx}px`;
                 itemEl.style.height = `${hPx}px`;
                 
-                if (entryIdx > 0) {
-                    const gapPx = entry.gap_before * scalePxPerMm;
-                    itemEl.style.marginLeft = `${gapPx}px`;
-                }
-
                 const imgEl = document.createElement('img');
                 imgEl.src = item.preview_b64;
                 if (item.mirror) {
@@ -354,12 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 itemEl.appendChild(imgEl);
                 rowEl.appendChild(itemEl);
-
-                if (showCutLines && entry.is_pair_end && entryIdx < row.length - 1) {
-                    const divider = document.createElement('div');
-                    divider.className = 'a4-cut-divider-vert';
-                    rowEl.appendChild(divider);
-                }
 
                 totalPlaced++;
             });

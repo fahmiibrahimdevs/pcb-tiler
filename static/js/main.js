@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const marginMmInput = document.getElementById('marginMm');
     const autoCenterCheck = document.getElementById('autoCenter');
     const showCutLinesCheck = document.getElementById('showCutLines');
+    const btnAutoMaxPage = document.getElementById('btnAutoMaxPage');
 
     const formatCards = document.querySelectorAll('.format-card');
     const btnGenerate = document.getElementById('btnGenerate');
@@ -54,6 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
     showCutLinesCheck.addEventListener('change', updateLiveA4Preview);
     gapSpacesInput.addEventListener('input', updateLiveA4Preview);
     marginMmInput.addEventListener('input', updateLiveA4Preview);
+
+    if (btnAutoMaxPage) {
+        btnAutoMaxPage.addEventListener('click', calculateAutoMaxOnePage);
+    }
 
     // Drag & Drop Handlers
     ['dragenter', 'dragover'].forEach(name => {
@@ -125,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 renderItemsList();
-                updateLiveA4Preview();
+                calculateAutoMaxOnePage(); // Auto calculate 1 page capacity on load!
             } else {
                 alert(`Error: ${data.error}`);
             }
@@ -216,22 +221,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Auto-Fill Calculation
-    function calculateAutoFill(idx) {
-        const item = loadedItems[idx];
+    // Auto-Max Fill 1 Page Calculation
+    function calculateAutoMaxOnePage() {
+        if (loadedItems.length === 0) return;
+
         const marginMm = parseFloat(marginMmInput.value) || 12.7;
         const printableW = 210.0 - (2 * marginMm);
         const printableH = 297.0 - (2 * marginMm);
         const rowGap = parseFloat(rowGapMmSlider.value) || 14.0;
-        const colGap = 15.0; // TAB gap
+        const mode = layoutModeSelect.value;
+        const gapSpaces = parseInt(gapSpacesInput.value) || 7;
+        const pairGapMm = (gapSpaces / 7.0) * 5.0;
+        const tabGapMm = 15.0;
 
-        const cols = Math.floor((printableW + colGap) / (item.width_mm + colGap));
-        const rows = Math.floor((printableH + rowGap) / (item.height_mm + rowGap));
-        const maxCopies = Math.max(1, cols * rows);
+        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
+            const itemA = loadedItems[0];
+            const itemB = loadedItems[1];
 
-        loadedItems[idx].copies = maxCopies;
+            const pairW = itemA.width_mm + pairGapMm + itemB.width_mm;
+            const pairH = Math.max(itemA.height_mm, itemB.height_mm);
+
+            const cols = Math.floor((printableW + tabGapMm) / (pairW + tabGapMm));
+            const rows = Math.floor((printableH + rowGap) / (pairH + rowGap));
+
+            const maxPairs = Math.max(1, cols * rows);
+
+            loadedItems[0].copies = maxPairs;
+            loadedItems[1].copies = maxPairs;
+        } else {
+            loadedItems.forEach(item => {
+                const cols = Math.floor((printableW + tabGapMm) / (item.width_mm + tabGapMm));
+                const rows = Math.floor((printableH + rowGap) / (item.height_mm + rowGap));
+                item.copies = Math.max(1, cols * rows);
+            });
+        }
+
         renderItemsList();
         updateLiveA4Preview();
+    }
+
+    function calculateAutoFill(idx) {
+        calculateAutoMaxOnePage();
     }
 
     // Update Live A4 Sheet Canvas Preview

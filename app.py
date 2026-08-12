@@ -39,7 +39,6 @@ def inspect_endpoint():
 
             inspect_data = PCBProcessor.inspect_pdf(pdf_bytes)
             
-            # Format preview images into base64 for fast UI rendering
             pages_list = []
             for p in inspect_data['pages']:
                 b64_img = base64.b64encode(p['png_bytes']).decode('utf-8')
@@ -67,31 +66,22 @@ def inspect_endpoint():
         'files': results
     })
 
-@app.route('/api/calculate_capacity', methods=['POST'])
-def calculate_capacity_endpoint():
-    """
-    Calculates how many copies fit on an A4 sheet based on PCB dimensions (mm) and gap.
-    """
-    data = request.get_json() or {}
-    pcb_w_mm = float(data.get('width_mm', 50.0))
-    pcb_h_mm = float(data.get('height_mm', 50.0))
-    gap_mm = float(data.get('gap_mm', 5.0))
-    margin_mm = float(data.get('margin_mm', 12.7))
-
-    capacity = PCBProcessor.calculate_max_capacity(pcb_w_mm, pcb_h_mm, gap_mm, margin_mm)
-    return jsonify({'success': True, 'capacity': capacity})
-
 @app.route('/api/generate', methods=['POST'])
 def generate_endpoint():
     """
-    Generates PDF or DOCX layout document containing tiled PCB copies.
+    Generates PDF or DOCX layout document with pair patterns, row gap, and dashed lines.
     """
     try:
         data = request.get_json() or {}
         export_format = data.get('export_format', 'pdf').lower()  # 'pdf' or 'docx'
+        layout_mode = data.get('layout_mode', 'pair_top_bot')      # 'pair_top_bot' or 'grid'
+        
         gap_spaces = int(data.get('gap_spaces', 7))
-        gap_mm = float(data.get('gap_mm', 5.0))
+        tab_spaces = int(data.get('tab_spaces', 12))
+        row_gap_mm = float(data.get('row_gap_mm', 8.0))
         margin_mm = float(data.get('margin_mm', 12.7))
+        show_cut_lines = bool(data.get('show_cut_lines', True))
+
         items_config = data.get('items', [])
 
         if not items_config:
@@ -119,7 +109,7 @@ def generate_endpoint():
                 mirror=mirror
             )
 
-            # Use override dimensions if provided, otherwise detected
+            # Use manual dimensions if provided and > 0, otherwise detected
             final_w = override_w if override_w > 0 else detected_w
             final_h = override_h if override_h > 0 else detected_h
 
@@ -133,7 +123,15 @@ def generate_endpoint():
             })
 
         if export_format == 'docx':
-            docx_bytes = PCBProcessor.generate_docx(processed_items, gap_spaces=gap_spaces, margin_mm=margin_mm)
+            docx_bytes = PCBProcessor.generate_docx(
+                processed_items,
+                gap_spaces=gap_spaces,
+                tab_spaces=tab_spaces,
+                row_gap_mm=row_gap_mm,
+                margin_mm=margin_mm,
+                layout_mode=layout_mode,
+                show_cut_lines=show_cut_lines
+            )
             return send_file(
                 io.BytesIO(docx_bytes),
                 mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -141,7 +139,15 @@ def generate_endpoint():
                 download_name='PCB_Layout_Tiled_A4.docx'
             )
         else:
-            pdf_bytes = PCBProcessor.generate_pdf(processed_items, gap_mm=gap_mm, margin_mm=margin_mm)
+            pdf_bytes = PCBProcessor.generate_pdf(
+                processed_items,
+                gap_spaces=gap_spaces,
+                tab_gap_mm=15.0,
+                row_gap_mm=row_gap_mm,
+                margin_mm=margin_mm,
+                layout_mode=layout_mode,
+                show_cut_lines=show_cut_lines
+            )
             return send_file(
                 io.BytesIO(pdf_bytes),
                 mimetype='application/pdf',

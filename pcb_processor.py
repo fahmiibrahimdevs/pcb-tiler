@@ -20,7 +20,7 @@ DEFAULT_MARGIN_MM = 12.7
 class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
-    Grid Layout Tiling, and Exporting to PDF & DOCX.
+    Grid Layout Tiling, Pair Patterning, and Exporting to PDF & DOCX.
     """
 
     @staticmethod
@@ -120,35 +120,19 @@ class PCBProcessor:
         return img, round(w_mm, 2), round(h_mm, 2)
 
     @staticmethod
-    def calculate_max_capacity(pcb_w_mm: float, pcb_h_mm: float, gap_mm: float = 5.0, margin_mm: float = DEFAULT_MARGIN_MM) -> dict:
-        """
-        Calculates how many PCB copies fit in portrait and landscape orientation on an A4 page.
-        """
-        printable_w = A4_WIDTH_MM - (2 * margin_mm)
-        printable_h = A4_HEIGHT_MM - (2 * margin_mm)
-
-        # Portrait orientation
-        cols_p = math.floor((printable_w + gap_mm) / (pcb_w_mm + gap_mm))
-        rows_p = math.floor((printable_h + gap_mm) / (pcb_h_mm + gap_mm))
-        total_p = max(0, cols_p * rows_p)
-
-        # Landscape orientation
-        cols_l = math.floor((printable_w + gap_mm) / (pcb_h_mm + gap_mm))
-        rows_l = math.floor((printable_h + gap_mm) / (pcb_w_mm + gap_mm))
-        total_l = max(0, cols_l * rows_l)
-
-        return {
-            "portrait": {"cols": max(0, cols_p), "rows": max(0, rows_p), "total": total_p},
-            "landscape": {"cols": max(0, cols_l), "rows": max(0, rows_l), "total": total_l},
-            "max_copies": max(total_p, total_l)
-        }
-
-    @staticmethod
-    def generate_docx(items: list, gap_spaces: int = 7, margin_mm: float = DEFAULT_MARGIN_MM) -> bytes:
+    def generate_docx(
+        items: list,
+        gap_spaces: int = 7,
+        tab_spaces: int = 12,
+        row_gap_mm: float = 8.0,
+        margin_mm: float = DEFAULT_MARGIN_MM,
+        layout_mode: str = "pair_top_bot",
+        show_cut_lines: bool = True
+    ) -> bytes:
         """
         Generates a DOCX document formatted on A4 paper with Narrow margins.
-        Items list contains dicts: { "image": PIL.Image, "width_mm": float, "height_mm": float, "copies": int, "label": str }
-        Pastes copies separated by specified number of spaces (default 7 spaces).
+        Supports TOP/BOT pair layout (TOP [7 spaces] BOT [TAB] TOP [7 spaces] BOT),
+        adjustable vertical row gap, and optional dashed cut guidelines.
         """
         doc = Document()
         
@@ -162,48 +146,117 @@ class PCBProcessor:
         section.right_margin = Mm(margin_mm)
 
         spaces_str = " " * gap_spaces
+        tab_str = " " * tab_spaces  # Tab spacing between pairs
 
-        # Create paragraph for PCB items
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(4)
-        p.paragraph_format.line_spacing = 1.0
+        # Flatten sequence of images according to layout mode
+        sequence = []
+        if layout_mode == "pair_top_bot":
+            # Separate TOP and BOT items
+            top_items = [it for it in items if not it.get("mirror", False)]
+            bot_items = [it for it in items if it.get("mirror", False)]
 
-        item_count = 0
-        for item in items:
+            if not top_items and items:
+                top_items = items
+            if not bot_items and items:
+                bot_items = items
+
+            top_item = top_items[0]
+            bot_item = bot_items[0]
+
+            total_pairs = min(top_item.get("copies", 1), bot_item.get("copies", 1))
+
+            for i in range(total_pairs):
+                sequence.append({"item": top_item, "is_pair_start": True})
+                sequence.append({"item": bot_item, "is_pair_end": True})
+        else:
+            # Sequential Grid Mode
+            for item in items:
+                copies = item.get("copies", 1)
+                for c in range(copies):
+                    sequence.append({"item": item, "is_pair_start": False, "is_pair_end": False})
+
+        # Build paragraphs line by line
+        printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
+        current_p = doc.add_paragraph()
+        current_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        current_p.paragraph_format.space_before = Pt(0)
+        # Convert row_gap_mm to points (1mm ≈ 2.83465 pt)
+        current_p.paragraph_format.space_after = Pt(row_gap_mm * 2.83465)
+        current_p.paragraph_format.line_spacing = 1.0
+
+        current_line_w_mm = 0.0
+
+        for idx, entry in enumerate(sequence):
+            item = entry["item"]
+            is_start = entry["is_pair_start"]
+            is_end = entry["is_pair_end"]
+
             img = item["image"]
-            width_mm = item["width_mm"]
-            height_mm = item["height_mm"]
-            copies = item.get("copies", 1)
-            label = item.get("label", "")
+            w_mm = item["width_mm"]
+            h_mm = item["height_mm"]
 
-            # Convert PIL image to bytes for python-docx
+            # Convert PIL image to PNG bytes
             img_buf = io.BytesIO()
             img.save(img_buf, format="PNG")
             img_buf.seek(0)
 
-            for c in range(copies):
-                if item_count > 0:
-                    # Add spaces between items
-                    run_space = p.add_run(spaces_str)
+            # Determine spacing before this image
+            add_gap = ""
+            gap_w_mm = 0.0
 
-                # Add picture with exact width and height
-                img_buf.seek(0)
-                run_img = p.add_run()
-                run_img.add_picture(img_buf, width=Mm(width_mm), height=Mm(height_mm))
+            if current_line_w_mm > 0:
+                if layout_mode == "pair_top_bot" and is_end:
+                    # Inside same pair: 7 spaces (~5mm)
+                    add_gap = spaces_str
+                    gap_w_mm = 5.0
+                else:
+                    # Between different pairs or items: TAB gap (~15mm)
+                    add_gap = tab_str
+                    gap_w_mm = 15.0
 
-                item_count += 1
+            # Check if image + gap fits on current line
+            if current_line_w_mm + gap_w_mm + w_mm > printable_w_mm + 1.0:
+                # Wrap to next row paragraph
+                current_p = doc.add_paragraph()
+                current_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                current_p.paragraph_format.space_before = Pt(0)
+                current_p.paragraph_format.space_after = Pt(row_gap_mm * 2.83465)
+                current_p.paragraph_format.line_spacing = 1.0
+                
+                current_line_w_mm = 0.0
+                add_gap = ""
+                gap_w_mm = 0.0
+
+            if add_gap:
+                current_p.add_run(add_gap)
+                current_line_w_mm += gap_w_mm
+
+            run_img = current_p.add_run()
+            run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
+            current_line_w_mm += w_mm
+
+            # Draw optional divider text guideline if enabled
+            if show_cut_lines and is_end and idx < len(sequence) - 1:
+                current_p.add_run("  ┆  ")
+                current_line_w_mm += 4.0
 
         output_buf = io.BytesIO()
         doc.save(output_buf)
         return output_buf.getvalue()
 
     @staticmethod
-    def generate_pdf(items: list, gap_mm: float = 5.0, margin_mm: float = DEFAULT_MARGIN_MM) -> bytes:
+    def generate_pdf(
+        items: list,
+        gap_spaces: int = 7,
+        tab_gap_mm: float = 15.0,
+        row_gap_mm: float = 8.0,
+        margin_mm: float = DEFAULT_MARGIN_MM,
+        layout_mode: str = "pair_top_bot",
+        show_cut_lines: bool = True
+    ) -> bytes:
         """
         Generates a 1:1 scale Print-Ready PDF on A4 paper using ReportLab.
-        Arranges items neatly in grid order.
+        Draws exact TOP/BOT pairs, vertical row gaps, and dashed cutting guidelines.
         """
         output_buf = io.BytesIO()
         c = canvas.Canvas(output_buf, pagesize=A4)
@@ -212,16 +265,45 @@ class PCBProcessor:
         printable_h = A4_HEIGHT_MM - (2 * margin_mm)
 
         curr_x = margin_mm
-        # ReportLab Y origin is at BOTTOM of page!
-        curr_y = A4_HEIGHT_MM - margin_mm
+        curr_y = A4_HEIGHT_MM - margin_mm  # Y origin at top
 
-        for item in items:
+        # Build sequence of items
+        sequence = []
+        if layout_mode == "pair_top_bot":
+            top_items = [it for it in items if not it.get("mirror", False)]
+            bot_items = [it for it in items if it.get("mirror", False)]
+
+            if not top_items and items:
+                top_items = items
+            if not bot_items and items:
+                bot_items = items
+
+            top_item = top_items[0]
+            bot_item = bot_items[0]
+            total_pairs = min(top_item.get("copies", 1), bot_item.get("copies", 1))
+
+            for i in range(total_pairs):
+                sequence.append({"item": top_item, "is_pair_start": True})
+                sequence.append({"item": bot_item, "is_pair_end": True})
+        else:
+            for item in items:
+                for cp in range(item.get("copies", 1)):
+                    sequence.append({"item": item, "is_pair_start": False, "is_pair_end": False})
+
+        pair_gap_mm = 5.0  # 7 spaces equivalent ~5mm
+
+        max_row_height = 0.0
+
+        for idx, entry in enumerate(sequence):
+            item = entry["item"]
+            is_start = entry["is_pair_start"]
+            is_end = entry["is_pair_end"]
+
             img = item["image"]
             w_mm = item["width_mm"]
             h_mm = item["height_mm"]
-            copies = item.get("copies", 1)
 
-            # Convert PIL image to temporary bytes
+            # Convert PIL image to PNG bytes
             img_buf = io.BytesIO()
             img.save(img_buf, format="PNG")
             img_buf.seek(0)
@@ -229,34 +311,59 @@ class PCBProcessor:
             from reportlab.lib.utils import ImageReader
             rl_img = ImageReader(img_buf)
 
-            for copy_idx in range(copies):
-                # Check if item fits in current line
-                if curr_x + w_mm > A4_WIDTH_MM - margin_mm + 0.1:
-                    # Move to next line
-                    curr_x = margin_mm
-                    curr_y -= (h_mm + gap_mm)
+            # Determine gap before item
+            current_gap = 0.0
+            if curr_x > margin_mm:
+                if layout_mode == "pair_top_bot" and is_end:
+                    current_gap = pair_gap_mm
+                else:
+                    current_gap = tab_gap_mm
 
-                # Check if item fits on current page height
-                if curr_y - h_mm < margin_mm - 0.1:
-                    # Create new page
-                    c.showPage()
-                    curr_x = margin_mm
-                    curr_y = A4_HEIGHT_MM - margin_mm
+            # Check line overflow
+            if curr_x + current_gap + w_mm > A4_WIDTH_MM - margin_mm + 0.1:
+                # Wrap to next row
+                curr_x = margin_mm
+                curr_y -= (max_row_height + row_gap_mm)
+                max_row_height = 0.0
+                current_gap = 0.0
 
-                # Draw PCB image at exact location
-                # ReportLab drawImage uses bottom-left point as (x, y)
-                draw_y = curr_y - h_mm
-                c.drawImage(
-                    rl_img,
-                    curr_x * reportlab_mm,
-                    draw_y * reportlab_mm,
-                    width=w_mm * reportlab_mm,
-                    height=h_mm * reportlab_mm,
-                    mask='auto'
-                )
+            # Check page overflow
+            if curr_y - h_mm < margin_mm - 0.1:
+                c.showPage()
+                curr_x = margin_mm
+                curr_y = A4_HEIGHT_MM - margin_mm
+                max_row_height = 0.0
+                current_gap = 0.0
 
-                # Advance X for next item
-                curr_x += (w_mm + gap_mm)
+            curr_x += current_gap
+            max_row_height = max(max_row_height, h_mm)
+
+            # Draw PCB Image
+            draw_y = curr_y - h_mm
+            c.drawImage(
+                rl_img,
+                curr_x * reportlab_mm,
+                draw_y * reportlab_mm,
+                width=w_mm * reportlab_mm,
+                height=h_mm * reportlab_mm,
+                mask='auto'
+            )
+
+            # Draw optional dashed cut line between pairs
+            if show_cut_lines:
+                c.saveState()
+                c.setDash(2, 3)
+                c.setStrokeColor(colors.HexColor('#94a3b8'))
+                c.setLineWidth(0.4)
+
+                if is_end:
+                    # Draw vertical cut line after pair
+                    cut_x = (curr_x + w_mm + (tab_gap_mm / 2.0)) * reportlab_mm
+                    c.line(cut_x, (draw_y - 2) * reportlab_mm, cut_x, (curr_y + 2) * reportlab_mm)
+
+                c.restoreState()
+
+            curr_x += w_mm
 
         c.save()
         return output_buf.getvalue()

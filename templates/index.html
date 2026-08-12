@@ -24,7 +24,7 @@
             </div>
             <div class="header-badges">
                 <span class="badge badge-success">A4 Narrow Margin</span>
-                <span class="badge badge-info">Multi-PDF Support</span>
+                <span class="badge badge-info">Multi-PDF & Pairs</span>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
             <!-- Loaded Items Configuration List -->
             <div id="itemsCard" class="card hidden">
                 <div class="card-header">
-                    <h2>🧩 2. Konfigurasi Desain PCB</h2>
+                    <h2>🧩 2. Konfigurasi Dimensi & Pair Desain PCB</h2>
                 </div>
                 <div class="card-body">
                     <div id="itemsContainer" class="items-list">
@@ -64,25 +64,55 @@
             <!-- Page Layout Settings -->
             <div id="settingsCard" class="card hidden">
                 <div class="card-header">
-                    <h2>⚙️ 3. Pengaturan Halaman A4 & Spasi</h2>
+                    <h2>⚙️ 3. Pengaturan Pattern Layout & Spasi Baris</h2>
                 </div>
                 <div class="card-body">
+                    <!-- Layout Pattern Mode -->
                     <div class="form-group">
-                        <label for="gapSpaces">Jarak Antar PCB (Banyak Spasi / Spacing):</label>
-                        <div class="input-with-suffix">
-                            <input type="number" id="gapSpaces" value="7" min="1" max="30" class="form-control">
-                            <span class="suffix">Spasi (~5 mm)</span>
+                        <label>Pola Susunan Layout (Pattern):</label>
+                        <select id="layoutMode" class="form-control select-dark">
+                            <option value="pair_top_bot" selected>↔ Pasangan: TOP [7 Spasi] BOT [TAB] TOP [7 Spasi] BOT</option>
+                            <option value="grid">≡ Sequential Grid (Berurutan)</option>
+                        </select>
+                    </div>
+
+                    <!-- Row Spacing Slider -->
+                    <div class="form-group">
+                        <div class="flex-between" style="margin-bottom: 4px;">
+                            <label for="rowGapMm">Jarak Antar Baris (Vertikal Row Gap):</label>
+                            <span id="rowGapVal" class="val-badge">8 mm</span>
+                        </div>
+                        <input type="range" id="rowGapMm" min="0" max="30" step="0.5" value="8" class="form-range">
+                    </div>
+
+                    <!-- Horizontal Gap & Margin -->
+                    <div class="form-row">
+                        <div class="form-group col-half">
+                            <label for="gapSpaces">Dalam Pasangan:</label>
+                            <div class="input-with-suffix">
+                                <input type="number" id="gapSpaces" value="7" min="1" max="30" class="form-control">
+                                <span class="suffix">Spasi</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-half">
+                            <label for="marginMm">Margin A4:</label>
+                            <div class="input-with-suffix">
+                                <input type="number" id="marginMm" value="12.7" step="0.1" min="0" max="30" class="form-control">
+                                <span class="suffix">mm</span>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- Dashed Cut Guidelines Checkbox -->
                     <div class="form-group">
-                        <label for="marginMm">Margin Kertas A4 (Narrow):</label>
-                        <div class="input-with-suffix">
-                            <input type="number" id="marginMm" value="12.7" step="0.1" min="0" max="30" class="form-control">
-                            <span class="suffix">mm (0.5 in)</span>
-                        </div>
+                        <label class="checkbox-label" for="showCutLines">
+                            <input type="checkbox" id="showCutLines" checked>
+                            <span>✂️ Tampilkan Garis Pemisah Putus-Putus (Cut Guidelines)</span>
+                        </label>
                     </div>
 
+                    <!-- Export Format Selection -->
                     <div class="form-group">
                         <label>Format Export Dokumen:</label>
                         <div class="format-selector">
@@ -94,7 +124,7 @@
                             <label class="format-card">
                                 <input type="radio" name="exportFormat" value="docx">
                                 <span class="format-title">Word Document (.docx)</span>
-                                <span class="format-desc">Margin Narrow, 7 spasi antar gambar</span>
+                                <span class="format-desc">Format Word A4, Narrow, 7 spasi & TAB</span>
                             </label>
                         </div>
                     </div>
@@ -113,7 +143,7 @@
                     <h2>🖼️ Pratinjau Lembar Kertas A4 (Live Preview 1:1 Layout)</h2>
                     <div class="page-stats">
                         <span id="statCapacity" class="stat-tag">Kapasitas: 0 PCB / Lembar</span>
-                        <span id="statPageCount" class="stat-tag tag-blue">Total: 1 Halaman A4</span>
+                        <span id="statPattern" class="stat-tag tag-blue">Pola: TOP + BOT Pair</span>
                     </div>
                 </div>
                 <div class="card-body canvas-body">
@@ -121,7 +151,7 @@
                     <div id="previewEmpty" class="preview-empty">
                         <div class="empty-icon">🖨️</div>
                         <h3>Belum Ada File PDF Dimuat</h3>
-                        <p>Silakan unggah satu atau beberapa file PDF PCB di sebelah kiri untuk melihat tata letak A4 otomatis.</p>
+                        <p>Silakan unggah file PDF PCB (TOP & BOT) di sebelah kiri untuk melihat tata letak A4 otomatis.</p>
                     </div>
 
                     <!-- Live A4 Sheet Canvas -->

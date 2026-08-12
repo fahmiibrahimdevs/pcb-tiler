@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="item-controls-row">
                         <div>
-                            <span style="font-size: 11px; color: var(--text-muted);">Kopi:</span>
+                            <span style="font-size: 11px; color: var(--text-muted);">${layoutModeSelect.value === 'pair_top_bot' ? 'Pasangan Kopi:' : 'Kopi:'}</span>
                             <input type="number" class="input-num-sm input-copies" data-index="${index}" value="${item.copies}" min="1" max="50">
                         </div>
                         <button class="btn-autofill" data-index="${index}" style="margin-left: auto; background: none; border: 1px solid var(--border-color); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;">
@@ -346,10 +346,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Synchronized Copy Count Listener for Pair Mode
         document.querySelectorAll('.input-copies').forEach(inp => {
             inp.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
-                loadedItems[idx].copies = Math.max(1, parseInt(e.target.value) || 1);
+                const val = Math.max(1, parseInt(e.target.value) || 1);
+                
+                if (layoutModeSelect.value === 'pair_top_bot' && loadedItems.length >= 2) {
+                    loadedItems.forEach(it => { it.copies = val; });
+                    renderItemsList();
+                } else {
+                    loadedItems[idx].copies = val;
+                }
+
                 renderSlotsList();
                 updateLiveA4Preview();
             });
@@ -409,45 +418,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Build Current Layout Sequence for Universal N-File Support
+    // Build Current Layout Sequence for Strict Pair Patterning
     function buildSequence() {
         const mode = layoutModeSelect.value;
         let seq = [];
 
         if (mode === 'pair_top_bot') {
-            let allUnits = [];
-            loadedItems.forEach(item => {
-                const copies = item.copies || 1;
-                for (let c = 0; c < copies; c++) {
-                    allUnits.push(item);
-                }
-            });
-
-            let i = 0;
-            while (i < allUnits.length) {
-                const isPair = (i + 1 < allUnits.length);
-                const itemA = allUnits[i];
-
-                seq.push({
-                    item: itemA,
-                    is_pair_start: isPair,
-                    is_pair_end: false,
-                    label: `${itemA.filename} (Hal. ${itemA.page_num})`
-                });
-
-                if (isPair) {
-                    const itemB = allUnits[i + 1];
-                    seq.push({
-                        item: itemB,
-                        is_pair_start: false,
-                        is_pair_end: true,
-                        label: `${itemB.filename} (Hal. ${itemB.page_num})`
-                    });
-                    i += 2;
+            // Group items into pairs: (Item 0, Item 1), (Item 2, Item 3)...
+            let pairsList = [];
+            let idx = 0;
+            while (idx < loadedItems.length) {
+                const itemA = loadedItems[idx];
+                if (idx + 1 < loadedItems.length) {
+                    const itemB = loadedItems[idx + 1];
+                    pairsList.push([itemA, itemB]);
+                    idx += 2;
                 } else {
-                    i += 1;
+                    pairsList.push([itemA, null]);
+                    idx += 1;
                 }
             }
+
+            pairsList.forEach(pairGroup => {
+                const itemA = pairGroup[0];
+                const itemB = pairGroup[1];
+                let copies = itemA.copies || 1;
+                if (itemB) copies = Math.max(copies, itemB.copies || 1);
+
+                for (let c = 0; c < copies; c++) {
+                    seq.push({
+                        item: itemA,
+                        is_pair_start: (itemB !== null),
+                        is_pair_end: false,
+                        label: `${itemA.filename} (Pasangan #${c+1} TOP)`
+                    });
+
+                    if (itemB) {
+                        seq.push({
+                            item: itemB,
+                            is_pair_start: false,
+                            is_pair_end: true,
+                            label: `${itemB.filename} (Pasangan #${c+1} BOT)`
+                        });
+                    }
+                }
+            });
         } else {
             loadedItems.forEach(item => {
                 for (let c = 0; c < item.copies; c++) {

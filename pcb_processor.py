@@ -21,9 +21,8 @@ class PCBProcessor:
     """
     Core Engine for PCB PDF Extraction, Dimension Detection,
     Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
-    Pair Patterning (7 spaces inside pair, dashed cut line between pairs),
+    Strict Pair Patterning: Pair 1 [TOP (7 spaces) BOT] -> Cut Line -> Pair 2 [TOP (7 spaces) BOT],
     Horizontal Auto-Centering (Center), Row Spacing, and Cut Line Generation.
-    Supports Universal N-File Multi-Design Pairing and Automatic Line Wrapping.
     """
 
     @staticmethod
@@ -119,42 +118,46 @@ class PCBProcessor:
         slot_idx = 0
 
         if layout_mode == "pair_top_bot":
-            # Universal N-file sequential unit builder: preserves ALL uploaded files & copies
-            all_units = []
-            for item in items:
-                copies = item.get("copies", 1)
-                for _ in range(copies):
-                    all_units.append(item)
+            # Group items into structural pairs: (Item 0, Item 1), (Item 2, Item 3)...
+            pairs_list = []
+            idx = 0
+            while idx < len(items):
+                item_a = items[idx]
+                if idx + 1 < len(items):
+                    item_b = items[idx + 1]
+                    idx += 2
+                else:
+                    item_b = None
+                    idx += 1
+                pairs_list.append((item_a, item_b))
 
-            i = 0
-            while i < len(all_units):
-                is_pair = (i + 1 < len(all_units))
-                item_a = all_units[i]
-                
-                vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
-                sequence.append({
-                    "item": item_a,
-                    "is_pair_start": is_pair,
-                    "is_pair_end": False,
-                    "visible": vis_a,
-                    "slot_index": slot_idx
-                })
-                slot_idx += 1
+            # Build sequence pair by pair so TOP is ALWAYS paired with BOT!
+            for item_a, item_b in pairs_list:
+                copies = item_a.get("copies", 1)
+                if item_b:
+                    copies = max(copies, item_b.get("copies", 1))
 
-                if is_pair:
-                    item_b = all_units[i + 1]
-                    vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                for c in range(copies):
+                    vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
                     sequence.append({
-                        "item": item_b,
-                        "is_pair_start": False,
-                        "is_pair_end": True,
-                        "visible": vis_b,
+                        "item": item_a,
+                        "is_pair_start": (item_b is not None),
+                        "is_pair_end": False,
+                        "visible": vis_a,
                         "slot_index": slot_idx
                     })
                     slot_idx += 1
-                    i += 2
-                else:
-                    i += 1
+
+                    if item_b:
+                        vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                        sequence.append({
+                            "item": item_b,
+                            "is_pair_start": False,
+                            "is_pair_end": True,
+                            "visible": vis_b,
+                            "slot_index": slot_idx
+                        })
+                        slot_idx += 1
         else:
             for item in items:
                 for c in range(item.get("copies", 1)):

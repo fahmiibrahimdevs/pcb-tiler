@@ -551,7 +551,7 @@ body {
     align-items: center;
     justify-content: center;
     background: #090d16;
-    padding: 30px;
+    padding: 24px;
     overflow: auto;
 }
 
@@ -567,15 +567,15 @@ body {
 
 /* Real Scale A4 Paper Visualizer (Aspect Ratio 210 : 297 = 1 : 1.414) */
 .a4-paper-sheet {
-    width: 500px;
-    height: 707px; /* 500 * 1.414 */
     background: #ffffff;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
     border-radius: 4px;
     position: relative;
-    padding: 30px; /* Represents narrow margin proportionally */
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
+    margin: auto;
+    transition: width 0.15s ease-out, height 0.15s ease-out, padding 0.15s ease-out;
 }
 
 .a4-margin-box {

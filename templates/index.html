@@ -176,10 +176,19 @@
         <main class="preview-panel">
             <div class="card full-height">
                 <div class="card-header flex-between">
-                    <h2>🖼️ Pratinjau Lembar Kertas A4 (Live Preview 1:1 Layout)</h2>
-                    <div class="page-stats">
-                        <span id="statCapacity" class="stat-tag">Kapasitas: 0 PCB / Lembar</span>
-                        <span id="statPattern" class="stat-tag tag-blue">Pola: Pasangan (Top + Bot)</span>
+                    <h2>🖼️ Pratinjau Lembar Kertas A4 (Live Preview)</h2>
+                    <div class="header-right-controls" style="display: flex; align-items: center; gap: 14px;">
+                        <!-- Zoom Level Slider -->
+                        <div class="zoom-controls" style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 11px; color: var(--text-muted);">🔍 Zoom Kertas:</span>
+                            <input type="range" id="zoomPaperSlider" min="70" max="220" step="5" value="120" class="form-range" style="width: 100px;">
+                            <span id="zoomPaperVal" class="val-badge">120%</span>
+                            <button id="btnResetZoom" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;" title="Reset Zoom ke 100%">↺</button>
+                        </div>
+                        <div class="page-stats">
+                            <span id="statCapacity" class="stat-tag">Kapasitas: 0 PCB / Lembar</span>
+                            <span id="statPattern" class="stat-tag tag-blue">Pola: Pasangan (Top + Bot)</span>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body canvas-body">

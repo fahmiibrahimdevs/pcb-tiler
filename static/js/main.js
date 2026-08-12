@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const marginMmSlider = document.getElementById('marginMm');
     const marginMmVal = document.getElementById('marginMmVal');
+
+    const zoomPaperSlider = document.getElementById('zoomPaperSlider');
+    const zoomPaperVal = document.getElementById('zoomPaperVal');
+    const btnResetZoom = document.getElementById('btnResetZoom');
     
     const autoCenterCheck = document.getElementById('autoCenter');
     const showCutLinesCheck = document.getElementById('showCutLines');
@@ -46,6 +50,35 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadedItems = [];
     let activeMode = 'final'; // 'final' or 'test'
     let slotsVisibilityMap = []; // Array of booleans for TEST mode
+
+    // Restore Saved Zoom Level from localStorage
+    const savedZoom = localStorage.getItem('pcb_tiler_zoom');
+    if (savedZoom && zoomPaperSlider) {
+        const parsedZoom = parseInt(savedZoom, 10);
+        if (!isNaN(parsedZoom) && parsedZoom >= 70 && parsedZoom <= 220) {
+            zoomPaperSlider.value = parsedZoom;
+            if (zoomPaperVal) zoomPaperVal.textContent = `${parsedZoom}%`;
+        }
+    }
+
+    // Zoom Paper Slider Listener with LocalStorage Persistence
+    if (zoomPaperSlider) {
+        zoomPaperSlider.addEventListener('input', (e) => {
+            const zoomVal = parseInt(e.target.value, 10);
+            if (zoomPaperVal) zoomPaperVal.textContent = `${zoomVal}%`;
+            localStorage.setItem('pcb_tiler_zoom', zoomVal);
+            updateLiveA4Preview();
+        });
+    }
+
+    if (btnResetZoom) {
+        btnResetZoom.addEventListener('click', () => {
+            if (zoomPaperSlider) zoomPaperSlider.value = 100;
+            if (zoomPaperVal) zoomPaperVal.textContent = '100%';
+            localStorage.setItem('pcb_tiler_zoom', 100);
+            updateLiveA4Preview();
+        });
+    }
 
     // Mode Switcher Listener
     btnTabFinal.addEventListener('click', () => {
@@ -523,13 +556,29 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateAutoMaxOnePage();
     }
 
-    // Update Live A4 Sheet Canvas Preview
+    // Update Live A4 Sheet Canvas Preview with Dynamic Zoom & Margin Support
     function updateLiveA4Preview() {
         a4GridContainer.innerHTML = '';
         
-        const scalePxPerMm = 500.0 / 210.0; // ~2.38 px/mm
-        const rowGapPx = (parseFloat(rowGapMmSlider.value) || 14.0) * scalePxPerMm;
+        // Base width for A4 sheet visualizer at 100% zoom
+        const baseSheetWidthPx = 560;
+        const zoomPercent = parseInt(zoomPaperSlider ? zoomPaperSlider.value : 120, 10) || 120;
+        
+        const currentSheetWidthPx = (baseSheetWidthPx * (zoomPercent / 100.0));
+        const currentSheetHeightPx = currentSheetWidthPx * (297.0 / 210.0); // Exact 1 : 1.414 ratio
+
+        // Apply dynamic canvas dimensions
+        a4PaperSheet.style.width = `${currentSheetWidthPx}px`;
+        a4PaperSheet.style.height = `${currentSheetHeightPx}px`;
+
         const marginMm = parseFloat(marginMmSlider.value) || 12.7;
+        const marginPx = (marginMm / 210.0) * currentSheetWidthPx;
+        a4PaperSheet.style.padding = `${marginPx}px`;
+
+        const printableWidthPx = currentSheetWidthPx - (2 * marginPx);
+        const scalePxPerMm = printableWidthPx / (210.0 - (2 * marginMm));
+
+        const rowGapPx = (parseFloat(rowGapMmSlider.value) || 14.0) * scalePxPerMm;
         const printableW_mm = 210.0 - (2 * marginMm);
 
         const mode = layoutModeSelect.value;

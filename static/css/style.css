@@ -496,9 +496,9 @@ body {
     display: block;
 }
 
-/* Thicker & Darker Cut Guidelines */
+/* Ultra Bold & Dark Cut Guidelines */
 .a4-cut-divider-vert {
-    border-left: 2px dashed #475569;
+    border-left: 2.5px dashed #0f172a;
     height: 95%;
     align-self: center;
     flex-shrink: 0;
@@ -506,7 +506,7 @@ body {
 
 .a4-cut-divider-horiz {
     width: 100%;
-    border-top: 2px dashed #475569;
+    border-top: 2.5px dashed #0f172a;
     margin: 0;
 }
 

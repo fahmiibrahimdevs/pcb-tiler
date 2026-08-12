@@ -235,6 +235,7 @@ class PCBProcessor:
                         if show_cut_lines:
                             run_v = p.add_run(tab_left_str + "┆" + tab_right_str)
                             run_v.font.bold = True
+                            run_v.font.size = Pt(11)
                         else:
                             p.add_run(" " * tab_spaces)
 
@@ -248,7 +249,7 @@ class PCBProcessor:
                 p_cut.paragraph_format.space_before = Pt(0)
                 p_cut.paragraph_format.space_after = Pt((row_gap_mm / 2.0) * 2.83465)
                 run_line = p_cut.add_run("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
-                run_line.font.size = Pt(9)
+                run_line.font.size = Pt(10)
                 run_line.font.name = 'Courier New'
                 run_line.font.bold = True
 
@@ -307,13 +308,13 @@ class PCBProcessor:
                 h_mm = item["height_mm"]
                 gap_before = entry["gap_before"]
 
-                # Draw thicker vertical cut line centered in TAB gap before starting next pair
+                # Draw bold 1.8pt vertical cut line centered in TAB gap before starting next pair
                 if show_cut_lines and entry_idx > 0 and (layout_mode != "pair_top_bot" or is_start):
                     cut_x = (curr_x_mm + (gap_before / 2.0)) * reportlab_mm
                     c.saveState()
-                    c.setDash(3, 3)
-                    c.setStrokeColor(colors.HexColor('#475569'))
-                    c.setLineWidth(0.8) # Thicker 0.8pt line
+                    c.setDash(4, 4)
+                    c.setStrokeColor(colors.HexColor('#0f172a')) # Dark solid black/navy
+                    c.setLineWidth(1.8) # Ultra bold 1.8pt line
                     c.line(cut_x, (draw_y_mm - 3) * reportlab_mm, cut_x, (curr_y_mm + 3) * reportlab_mm)
                     c.restoreState()
 
@@ -337,12 +338,12 @@ class PCBProcessor:
 
                 curr_x_mm += w_mm
 
-            # Draw thicker horizontal dashed cut line between rows
+            # Draw bold 1.8pt horizontal dashed cut line between rows
             if show_cut_lines and row_idx < len(rows) - 1:
                 c.saveState()
-                c.setDash(3, 3)
-                c.setStrokeColor(colors.HexColor('#475569'))
-                c.setLineWidth(0.8) # Thicker 0.8pt line
+                c.setDash(4, 4)
+                c.setStrokeColor(colors.HexColor('#0f172a')) # Dark solid black/navy
+                c.setLineWidth(1.8) # Ultra bold 1.8pt line
                 cut_y = (draw_y_mm - (row_gap_mm / 2.0)) * reportlab_mm
                 c.line(margin_mm * reportlab_mm, cut_y, (A4_WIDTH_MM - margin_mm) * reportlab_mm, cut_y)
                 c.restoreState()

@@ -8,10 +8,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsCard = document.getElementById('settingsCard');
     
     const layoutModeSelect = document.getElementById('layoutMode');
+    
     const rowGapMmSlider = document.getElementById('rowGapMm');
     const rowGapVal = document.getElementById('rowGapVal');
-    const gapSpacesInput = document.getElementById('gapSpaces');
-    const marginMmInput = document.getElementById('marginMm');
+    
+    const gapSpacesSlider = document.getElementById('gapSpaces');
+    const gapSpacesVal = document.getElementById('gapSpacesVal');
+    
+    const marginMmSlider = document.getElementById('marginMm');
+    const marginMmVal = document.getElementById('marginMmVal');
+    
     const autoCenterCheck = document.getElementById('autoCenter');
     const showCutLinesCheck = document.getElementById('showCutLines');
     const btnAutoMaxPage = document.getElementById('btnAutoMaxPage');
@@ -45,6 +51,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLiveA4Preview();
     });
 
+    // Slider Gap Spaces Display Listener
+    gapSpacesSlider.addEventListener('input', (e) => {
+        if (gapSpacesVal) gapSpacesVal.textContent = `${e.target.value} Spasi`;
+        updateLiveA4Preview();
+    });
+
+    // Slider Margin A4 Display Listener
+    marginMmSlider.addEventListener('input', (e) => {
+        if (marginMmVal) marginMmVal.textContent = `${e.target.value} mm`;
+        updateLiveA4Preview();
+    });
+
     layoutModeSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         statPattern.textContent = val === 'pair_top_bot' ? 'Pola: Pasangan (Top + Bot)' : 'Pola: Grid Berurutan';
@@ -53,8 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     autoCenterCheck.addEventListener('change', updateLiveA4Preview);
     showCutLinesCheck.addEventListener('change', updateLiveA4Preview);
-    gapSpacesInput.addEventListener('input', updateLiveA4Preview);
-    marginMmInput.addEventListener('input', updateLiveA4Preview);
 
     if (btnAutoMaxPage) {
         btnAutoMaxPage.addEventListener('click', calculateAutoMaxOnePage);
@@ -225,12 +241,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateAutoMaxOnePage() {
         if (loadedItems.length === 0) return;
 
-        const marginMm = parseFloat(marginMmInput.value) || 12.7;
+        const marginMm = parseFloat(marginMmSlider.value) || 12.7;
         const printableW = 210.0 - (2 * marginMm);
         const printableH = 297.0 - (2 * marginMm);
         const rowGap = parseFloat(rowGapMmSlider.value) || 14.0;
         const mode = layoutModeSelect.value;
-        const gapSpaces = parseInt(gapSpacesInput.value) || 7;
+        const gapSpaces = parseInt(gapSpacesSlider.value) || 7;
         const pairGapMm = (gapSpaces / 7.0) * 5.0;
         const tabGapMm = 15.0;
 
@@ -270,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const scalePxPerMm = 500.0 / 210.0; // ~2.38 px/mm
         const rowGapPx = (parseFloat(rowGapMmSlider.value) || 14.0) * scalePxPerMm;
-        const marginMm = parseFloat(marginMmInput.value) || 12.7;
+        const marginMm = parseFloat(marginMmSlider.value) || 12.7;
         const printableW_mm = 210.0 - (2 * marginMm);
 
         const mode = layoutModeSelect.value;
@@ -299,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Calculate dynamic pair gap in mm from spaces input (7 spaces = 5mm -> 0.714mm per space)
-        const gapSpaces = parseInt(gapSpacesInput.value) || 7;
+        const gapSpaces = parseInt(gapSpacesSlider.value) || 7;
         const pairGapMm = (gapSpaces / 7.0) * 5.0;
         const tabGapMm = 15.0;
 
@@ -412,9 +428,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
         const layoutMode = layoutModeSelect.value;
-        const gapSpaces = parseInt(gapSpacesInput.value) || 7;
+        const gapSpaces = parseInt(gapSpacesSlider.value) || 7;
         const rowGapMm = parseFloat(rowGapMmSlider.value) || 14.0;
-        const marginMm = parseFloat(marginMmInput.value) || 12.7;
+        const marginMm = parseFloat(marginMmSlider.value) || 12.7;
         const showCutLines = showCutLinesCheck.checked;
         const autoCenter = autoCenterCheck.checked;
 

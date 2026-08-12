@@ -22,7 +22,7 @@ class PCBProcessor:
     Core Engine for PCB PDF Extraction, Dimension Detection,
     Grid Layout Tiling, Ultra-Sharp 600 DPI Binarization,
     Pair Patterning, Horizontal Auto-Centering (Center),
-    Row Spacing, and Cut Line Generation.
+    Row Spacing, Cut Line Generation, and Fixed-Position TEST Mode Slot Toggling.
     """
 
     @staticmethod
@@ -83,9 +83,6 @@ class PCBProcessor:
 
     @staticmethod
     def render_pcb_image(pdf_bytes: bytes, page_num: int = 1, crop_content: bool = True) -> tuple:
-        """
-        Renders PCB PDF page at 600 DPI with pure Binarization (#000000 black, #FFFFFF white) for zero blur.
-        """
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         if page_num < 1 or page_num > len(doc):
             page_num = 1
@@ -116,20 +113,47 @@ class PCBProcessor:
         return img_bw, round(w_mm, 2), round(h_mm, 2)
 
     @staticmethod
-    def _build_sequence(items: list, layout_mode: str) -> list:
+    def _build_sequence(items: list, layout_mode: str, slots_visibility: list = None) -> list:
         sequence = []
+        slot_idx = 0
+
         if layout_mode == "pair_top_bot" and len(items) >= 2:
             item_a = items[0]
             item_b = items[1]
             total_pairs = min(item_a.get("copies", 1), item_b.get("copies", 1))
 
             for i in range(total_pairs):
-                sequence.append({"item": item_a, "is_pair_start": True, "is_pair_end": False})
-                sequence.append({"item": item_b, "is_pair_start": False, "is_pair_end": True})
+                vis_a = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                sequence.append({
+                    "item": item_a,
+                    "is_pair_start": True,
+                    "is_pair_end": False,
+                    "visible": vis_a,
+                    "slot_index": slot_idx
+                })
+                slot_idx += 1
+
+                vis_b = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                sequence.append({
+                    "item": item_b,
+                    "is_pair_start": False,
+                    "is_pair_end": True,
+                    "visible": vis_b,
+                    "slot_index": slot_idx
+                })
+                slot_idx += 1
         else:
             for item in items:
                 for c in range(item.get("copies", 1)):
-                    sequence.append({"item": item, "is_pair_start": False, "is_pair_end": False})
+                    vis = True if slots_visibility is None or slot_idx >= len(slots_visibility) else bool(slots_visibility[slot_idx])
+                    sequence.append({
+                        "item": item,
+                        "is_pair_start": False,
+                        "is_pair_end": False,
+                        "visible": vis,
+                        "slot_index": slot_idx
+                    })
+                    slot_idx += 1
         
         return sequence
 
@@ -179,7 +203,8 @@ class PCBProcessor:
         margin_mm: float = DEFAULT_MARGIN_MM,
         layout_mode: str = "pair_top_bot",
         show_cut_lines: bool = True,
-        auto_center: bool = True
+        auto_center: bool = True,
+        slots_visibility: list = None
     ) -> bytes:
         doc = Document()
         
@@ -196,9 +221,15 @@ class PCBProcessor:
         tab_left_str = " " * half_tab
         tab_right_str = " " * half_tab
 
-        sequence = PCBProcessor._build_sequence(items, layout_mode)
+        sequence = PCBProcessor._build_sequence(items, layout_mode, slots_visibility=slots_visibility)
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
         rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm, gap_spaces=gap_spaces)
+
+        # Create a 1x1 blank white image for invisible slots to preserve exact physical layout in Word
+        blank_white_img = Image.new("L", (10, 10), 255)
+        blank_buf = io.BytesIO()
+        blank_white_img.save(blank_buf, format="PNG")
+        blank_bytes = blank_buf.getvalue()
 
         for row_idx, row in enumerate(rows):
             p = doc.add_paragraph()
@@ -220,13 +251,10 @@ class PCBProcessor:
                 item = entry["item"]
                 is_start = entry["is_pair_start"]
                 is_end = entry["is_pair_end"]
+                visible = entry.get("visible", True)
                 img = item["image"]
                 w_mm = item["width_mm"]
                 h_mm = item["height_mm"]
-
-                img_buf = io.BytesIO()
-                img.save(img_buf, format="PNG")
-                img_buf.seek(0)
 
                 if entry_idx > 0:
                     if layout_mode == "pair_top_bot" and not is_start:
@@ -240,7 +268,14 @@ class PCBProcessor:
                             p.add_run(" " * tab_spaces)
 
                 run_img = p.add_run()
-                run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
+                if visible:
+                    img_buf = io.BytesIO()
+                    img.save(img_buf, format="PNG")
+                    img_buf.seek(0)
+                    run_img.add_picture(img_buf, width=Mm(w_mm), height=Mm(h_mm))
+                else:
+                    # Insert blank shape of exact width/height so positions DO NOT shift
+                    run_img.add_picture(io.BytesIO(blank_bytes), width=Mm(w_mm), height=Mm(h_mm))
 
             if show_cut_lines and row_idx < len(rows) - 1:
                 p_cut = doc.add_paragraph()
@@ -266,12 +301,13 @@ class PCBProcessor:
         margin_mm: float = DEFAULT_MARGIN_MM,
         layout_mode: str = "pair_top_bot",
         show_cut_lines: bool = True,
-        auto_center: bool = True
+        auto_center: bool = True,
+        slots_visibility: list = None
     ) -> bytes:
         output_buf = io.BytesIO()
         c = canvas.Canvas(output_buf, pagesize=A4)
         
-        sequence = PCBProcessor._build_sequence(items, layout_mode)
+        sequence = PCBProcessor._build_sequence(items, layout_mode, slots_visibility=slots_visibility)
         printable_w_mm = A4_WIDTH_MM - (2 * margin_mm)
         rows = PCBProcessor._group_sequence_into_rows(sequence, layout_mode, printable_w_mm, gap_spaces=gap_spaces)
 
@@ -303,6 +339,7 @@ class PCBProcessor:
             for entry_idx, entry in enumerate(row):
                 item = entry["item"]
                 is_start = entry["is_pair_start"]
+                visible = entry.get("visible", True)
                 img = item["image"]
                 w_mm = item["width_mm"]
                 h_mm = item["height_mm"]
@@ -320,21 +357,23 @@ class PCBProcessor:
 
                 curr_x_mm += gap_before
 
-                img_buf = io.BytesIO()
-                img.save(img_buf, format="PNG")
-                img_buf.seek(0)
+                # Only draw image if visible is True! If False, leave space blank (fixed coordinates!)
+                if visible:
+                    img_buf = io.BytesIO()
+                    img.save(img_buf, format="PNG")
+                    img_buf.seek(0)
 
-                from reportlab.lib.utils import ImageReader
-                rl_img = ImageReader(img_buf)
+                    from reportlab.lib.utils import ImageReader
+                    rl_img = ImageReader(img_buf)
 
-                c.drawImage(
-                    rl_img,
-                    curr_x_mm * reportlab_mm,
-                    draw_y_mm * reportlab_mm,
-                    width=w_mm * reportlab_mm,
-                    height=h_mm * reportlab_mm,
-                    mask='auto'
-                )
+                    c.drawImage(
+                        rl_img,
+                        curr_x_mm * reportlab_mm,
+                        draw_y_mm * reportlab_mm,
+                        width=w_mm * reportlab_mm,
+                        height=h_mm * reportlab_mm,
+                        mask='auto'
+                    )
 
                 curr_x_mm += w_mm
 

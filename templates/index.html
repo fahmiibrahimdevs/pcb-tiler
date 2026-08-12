@@ -49,14 +49,39 @@
                 </div>
             </div>
 
-            <!-- Loaded Items Configuration List -->
+            <!-- Loaded Items Configuration List with Mode Switcher -->
             <div id="itemsCard" class="card hidden">
-                <div class="card-header">
-                    <h2>🧩 2. Konfigurasi Dimensi & Pair Desain PCB</h2>
+                <div class="card-header flex-between">
+                    <h2>🧩 2. Konfigurasi Desain</h2>
+                    <div class="tab-mode-switcher">
+                        <button id="btnTabFinal" class="tab-mode-btn active">🚀 Mode FINAL</button>
+                        <button id="btnTabTest" class="tab-mode-btn">🔬 Mode TEST</button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div id="itemsContainer" class="items-list">
-                        <!-- Dynamically populated PCB cards -->
+                    <!-- Mode FINAL View -->
+                    <div id="modeFinalView">
+                        <div id="itemsContainer" class="items-list">
+                            <!-- Dynamically populated PCB cards -->
+                        </div>
+                    </div>
+
+                    <!-- Mode TEST View -->
+                    <div id="modeTestView" class="hidden">
+                        <div class="test-mode-banner">
+                            <strong>🔬 Mode Uji Fisik (Fixed Layout Slot)</strong>
+                            <span>Pilih slot posisi yang ingin dicetak. Slot yang dinonaktifkan akan tetap menjadi ruang kosong (fixed position) agar tidak menimpa hasil print sebelumnya saat kertas di-feed ulang.</span>
+                        </div>
+
+                        <div class="slot-quick-actions">
+                            <button id="btnSelectSlot1" class="btn-slot-action">1️⃣ Hanya Slot 1</button>
+                            <button id="btnSelectAllSlots" class="btn-slot-action">✅ Pilih Semua</button>
+                            <button id="btnClearAllSlots" class="btn-slot-action">❌ Kosongkan Semua</button>
+                        </div>
+
+                        <div id="slotsContainer" class="slots-list">
+                            <!-- Dynamically populated slot checkboxes -->
+                        </div>
                     </div>
                 </div>
             </div>

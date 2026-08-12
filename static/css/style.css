@@ -140,6 +140,126 @@ body {
     padding: 18px;
 }
 
+/* Tab Mode Switcher in Card 2 */
+.tab-mode-switcher {
+    display: flex;
+    gap: 4px;
+    background: #0f172a;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.tab-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-mode-btn:hover {
+    color: #ffffff;
+}
+
+.tab-mode-btn.active {
+    background: var(--accent-blue);
+    color: #0f172a;
+    box-shadow: 0 2px 6px rgba(56, 189, 248, 0.3);
+}
+
+/* TEST Mode Elements */
+.test-mode-banner {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.test-mode-banner strong {
+    font-size: 12px;
+    color: var(--accent-amber);
+}
+
+.test-mode-banner span {
+    font-size: 11px;
+    color: #cbd5e1;
+    line-height: 1.35;
+}
+
+.slot-quick-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.btn-slot-action {
+    flex: 1;
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    color: #cbd5e1;
+    padding: 6px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-slot-action:hover {
+    border-color: var(--accent-blue);
+    color: #ffffff;
+}
+
+.slots-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.slot-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.slot-card.slot-active {
+    border-color: var(--accent-green);
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.slot-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.slot-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.slot-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
 /* Upload Dropzone */
 .upload-dropzone {
     border: 2px dashed var(--accent-blue);
@@ -487,6 +607,20 @@ body {
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+}
+
+.a4-pcb-item.slot-hidden {
+    border: 1.5px dashed #cbd5e1 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    padding: 2px;
 }
 
 .a4-pcb-item img {

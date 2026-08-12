@@ -69,7 +69,8 @@ def inspect_endpoint():
 @app.route('/api/generate', methods=['POST'])
 def generate_endpoint():
     """
-    Generates PDF or DOCX layout document with 600 DPI binarization, 14mm default row gap, and cut lines.
+    Generates PDF or DOCX layout document with 600 DPI binarization, 14mm default row gap, cut lines,
+    and optional fixed-position slots_visibility for TEST mode.
     """
     try:
         data = request.get_json() or {}
@@ -82,6 +83,7 @@ def generate_endpoint():
         margin_mm = float(data.get('margin_mm', 12.7))
         show_cut_lines = bool(data.get('show_cut_lines', True))
         auto_center = bool(data.get('auto_center', True))
+        slots_visibility = data.get('slots_visibility', None)
 
         items_config = data.get('items', [])
 
@@ -128,7 +130,8 @@ def generate_endpoint():
                 margin_mm=margin_mm,
                 layout_mode=layout_mode,
                 show_cut_lines=show_cut_lines,
-                auto_center=auto_center
+                auto_center=auto_center,
+                slots_visibility=slots_visibility
             )
             return send_file(
                 io.BytesIO(docx_bytes),
@@ -145,7 +148,8 @@ def generate_endpoint():
                 margin_mm=margin_mm,
                 layout_mode=layout_mode,
                 show_cut_lines=show_cut_lines,
-                auto_center=auto_center
+                auto_center=auto_center,
+                slots_visibility=slots_visibility
             )
             return send_file(
                 io.BytesIO(pdf_bytes),

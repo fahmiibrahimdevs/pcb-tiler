@@ -7,6 +7,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsContainer = document.getElementById('itemsContainer');
     const settingsCard = document.getElementById('settingsCard');
     
+    const btnTabFinal = document.getElementById('btnTabFinal');
+    const btnTabTest = document.getElementById('btnTabTest');
+    const modeFinalView = document.getElementById('modeFinalView');
+    const modeTestView = document.getElementById('modeTestView');
+
+    const slotsContainer = document.getElementById('slotsContainer');
+    const btnSelectSlot1 = document.getElementById('btnSelectSlot1');
+    const btnSelectAllSlots = document.getElementById('btnSelectAllSlots');
+    const btnClearAllSlots = document.getElementById('btnClearAllSlots');
+
     const layoutModeSelect = document.getElementById('layoutMode');
     
     const rowGapMmSlider = document.getElementById('rowGapMm');
@@ -32,8 +42,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const statCapacity = document.getElementById('statCapacity');
     const statPattern = document.getElementById('statPattern');
 
-    // Loaded PCB items array
+    // App State
     let loadedItems = [];
+    let activeMode = 'final'; // 'final' or 'test'
+    let slotsVisibilityMap = []; // Array of booleans for TEST mode
+
+    // Mode Switcher Listener
+    btnTabFinal.addEventListener('click', () => {
+        activeMode = 'final';
+        btnTabFinal.classList.add('active');
+        btnTabTest.classList.remove('active');
+        modeFinalView.classList.remove('hidden');
+        modeTestView.classList.add('hidden');
+        updateLiveA4Preview();
+    });
+
+    btnTabTest.addEventListener('click', () => {
+        activeMode = 'test';
+        btnTabTest.classList.add('active');
+        btnTabFinal.classList.remove('active');
+        modeTestView.classList.remove('hidden');
+        modeFinalView.classList.add('hidden');
+        renderSlotsList();
+        updateLiveA4Preview();
+    });
+
+    // Quick Actions for TEST Mode Slots
+    if (btnSelectSlot1) {
+        btnSelectSlot1.addEventListener('click', () => {
+            for (let i = 0; i < slotsVisibilityMap.length; i++) {
+                slotsVisibilityMap[i] = (i === 0);
+            }
+            renderSlotsList();
+            updateLiveA4Preview();
+        });
+    }
+
+    if (btnSelectAllSlots) {
+        btnSelectAllSlots.addEventListener('click', () => {
+            for (let i = 0; i < slotsVisibilityMap.length; i++) {
+                slotsVisibilityMap[i] = true;
+            }
+            renderSlotsList();
+            updateLiveA4Preview();
+        });
+    }
+
+    if (btnClearAllSlots) {
+        btnClearAllSlots.addEventListener('click', () => {
+            for (let i = 0; i < slotsVisibilityMap.length; i++) {
+                slotsVisibilityMap[i] = false;
+            }
+            renderSlotsList();
+            updateLiveA4Preview();
+        });
+    }
 
     // Format Card Radio Toggle Listener
     formatCards.forEach(card => {
@@ -66,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     layoutModeSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         statPattern.textContent = val === 'pair_top_bot' ? 'Pola: Pasangan (Top + Bot)' : 'Pola: Grid Berurutan';
+        renderSlotsList();
         updateLiveA4Preview();
     });
 
@@ -146,7 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 renderItemsList();
-                updateLiveA4Preview(); // Render 1 row initially!
+                renderSlotsList();
+                updateLiveA4Preview();
             } else {
                 alert(`Error: ${data.error}`);
             }
@@ -155,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Render Loaded PCB Items in Sidebar
+    // Render Loaded PCB Items in Sidebar (Mode FINAL)
     function renderItemsList() {
         if (loadedItems.length === 0) {
             itemsCard.classList.add('hidden');
@@ -209,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inp.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 loadedItems[idx].width_mm = parseFloat(e.target.value) || loadedItems[idx].detected_w;
+                renderSlotsList();
                 updateLiveA4Preview();
             });
         });
@@ -217,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inp.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 loadedItems[idx].height_mm = parseFloat(e.target.value) || loadedItems[idx].detected_h;
+                renderSlotsList();
                 updateLiveA4Preview();
             });
         });
@@ -225,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inp.addEventListener('change', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 loadedItems[idx].copies = Math.max(1, parseInt(e.target.value) || 1);
+                renderSlotsList();
                 updateLiveA4Preview();
             });
         });
@@ -233,6 +301,77 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(e.target.dataset.index);
                 calculateAutoFill(idx);
+            });
+        });
+    }
+
+    // Build Current Layout Sequence
+    function buildSequence() {
+        const mode = layoutModeSelect.value;
+        let seq = [];
+
+        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
+            const itemA = loadedItems[0];
+            const itemB = loadedItems[1];
+            const totalPairs = Math.min(itemA.copies, itemB.copies);
+
+            for (let i = 0; i < totalPairs; i++) {
+                seq.push({ item: itemA, is_pair_start: true, is_pair_end: false, label: `${itemA.filename} (Pasangan #${i+1} TOP)` });
+                seq.push({ item: itemB, is_pair_start: false, is_pair_end: true, label: `${itemB.filename} (Pasangan #${i+1} BOT)` });
+            }
+        } else {
+            loadedItems.forEach(item => {
+                for (let c = 0; c < item.copies; c++) {
+                    seq.push({ item: item, is_pair_start: false, is_pair_end: false, label: `${item.filename} (#${c+1})` });
+                }
+            });
+        }
+
+        return seq;
+    }
+
+    // Render TEST Mode Slots Checkboxes List
+    function renderSlotsList() {
+        if (loadedItems.length === 0) return;
+
+        const seq = buildSequence();
+        
+        // Synchronize slotsVisibilityMap length with sequence length
+        if (slotsVisibilityMap.length !== seq.length) {
+            const newMap = [];
+            for (let i = 0; i < seq.length; i++) {
+                newMap.push(i < slotsVisibilityMap.length ? slotsVisibilityMap[i] : true);
+            }
+            slotsVisibilityMap = newMap;
+        }
+
+        slotsContainer.innerHTML = '';
+
+        seq.forEach((entry, idx) => {
+            const isChecked = slotsVisibilityMap[idx];
+            const slotCard = document.createElement('div');
+            slotCard.className = `slot-card ${isChecked ? 'slot-active' : ''}`;
+            slotCard.innerHTML = `
+                <div class="slot-info">
+                    <div class="slot-title">Slot #${idx + 1}: ${entry.label}</div>
+                    <div class="slot-sub">${entry.item.width_mm} x ${entry.item.height_mm} mm</div>
+                </div>
+                <label class="checkbox-label" style="margin: 0;">
+                    <input type="checkbox" class="chk-slot-vis" data-slot="${idx}" ${isChecked ? 'checked' : ''}>
+                    <span>👁️ Cetak</span>
+                </label>
+            `;
+
+            slotsContainer.appendChild(slotCard);
+        });
+
+        // Slot Checkbox Click Listeners
+        document.querySelectorAll('.chk-slot-vis').forEach(chk => {
+            chk.addEventListener('change', (e) => {
+                const sIdx = parseInt(e.target.dataset.slot);
+                slotsVisibilityMap[sIdx] = e.target.checked;
+                renderSlotsList();
+                updateLiveA4Preview();
             });
         });
     }
@@ -273,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         renderItemsList();
+        renderSlotsList();
         updateLiveA4Preview();
     }
 
@@ -295,24 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         a4GridContainer.style.rowGap = '0px';
 
-        let sequence = [];
-
-        if (mode === 'pair_top_bot' && loadedItems.length >= 2) {
-            const itemA = loadedItems[0];
-            const itemB = loadedItems[1];
-            const totalPairs = Math.min(itemA.copies, itemB.copies);
-
-            for (let i = 0; i < totalPairs; i++) {
-                sequence.push({ item: itemA, is_pair_start: true, is_pair_end: false });
-                sequence.push({ item: itemB, is_pair_start: false, is_pair_end: true });
-            }
-        } else {
-            loadedItems.forEach(item => {
-                for (let c = 0; c < item.copies; c++) {
-                    sequence.push({ item: item, is_pair_start: false, is_pair_end: false });
-                }
-            });
-        }
+        const sequence = buildSequence();
 
         // Calculate dynamic pair gap in mm from spaces input (7 spaces = 5mm -> 0.714mm per space)
         const gapSpaces = parseInt(gapSpacesSlider.value) || 7;
@@ -324,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentRow = [];
         let currentW = 0;
 
-        sequence.forEach(entry => {
+        sequence.forEach((entry, idx) => {
             const item = entry.item;
             const w_mm = item.width_mm;
             
@@ -341,6 +464,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             entry.gap_before = gap_before;
+            entry.slot_index = idx;
+            entry.visible = (activeMode === 'test') ? (slotsVisibilityMap[idx] !== false) : true;
+
             currentRow.push(entry);
             currentW += (gap_before + w_mm);
         });
@@ -350,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let totalPlaced = 0;
+        let totalActivePrinted = 0;
 
         rows.forEach((row, rowIdx) => {
             const rowEl = document.createElement('div');
@@ -364,10 +491,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = entry.item;
                 const isStart = entry.is_pair_start;
                 const gapBeforeMm = entry.gap_before;
+                const isVisible = entry.visible;
 
                 if (entryIdx > 0) {
                     if (showCutLines && (mode !== 'pair_top_bot' || isStart)) {
-                        // Centered vertical cut line in TAB gap
                         const halfGapPx = (gapBeforeMm / 2.0) * scalePxPerMm;
                         const divider = document.createElement('div');
                         divider.className = 'a4-cut-divider-vert';
@@ -383,20 +510,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const itemEl = document.createElement('div');
-                itemEl.className = 'a4-pcb-item';
-                
                 const wPx = item.width_mm * scalePxPerMm;
                 const hPx = item.height_mm * scalePxPerMm;
-                
+
                 itemEl.style.width = `${wPx}px`;
                 itemEl.style.height = `${hPx}px`;
-                
-                const imgEl = document.createElement('img');
-                imgEl.src = item.preview_b64;
-                
-                itemEl.appendChild(imgEl);
-                rowEl.appendChild(itemEl);
 
+                if (isVisible) {
+                    itemEl.className = 'a4-pcb-item';
+                    const imgEl = document.createElement('img');
+                    imgEl.src = item.preview_b64;
+                    itemEl.appendChild(imgEl);
+                    totalActivePrinted++;
+                } else {
+                    // Fixed position blank placeholder for hidden slots in TEST mode
+                    itemEl.className = 'a4-pcb-item slot-hidden';
+                    itemEl.innerHTML = `<span>Slot #${entry.slot_index + 1}<br>(Kosong)</span>`;
+                }
+                
+                rowEl.appendChild(itemEl);
                 totalPlaced++;
             });
 
@@ -416,7 +548,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        statCapacity.textContent = `Total Ditempatkan: ${totalPlaced} PCB (${rows.length} Baris)`;
+        if (activeMode === 'test') {
+            statCapacity.textContent = `Mode TEST: ${totalActivePrinted} dari ${totalPlaced} Slot Dicetak`;
+        } else {
+            statCapacity.textContent = `Total Ditempatkan: ${totalPlaced} PCB (${rows.length} Baris)`;
+        }
     }
 
     // Generate & Download API Request
@@ -452,6 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 copies: item.copies
             }))
         };
+
+        if (activeMode === 'test') {
+            payload.slots_visibility = slotsVisibilityMap;
+        }
 
         try {
             const res = await fetch('/api/generate', {

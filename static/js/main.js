@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowGapVal = document.getElementById('rowGapVal');
     const gapSpacesInput = document.getElementById('gapSpaces');
     const marginMmInput = document.getElementById('marginMm');
+    const autoCenterCheck = document.getElementById('autoCenter');
     const showCutLinesCheck = document.getElementById('showCutLines');
 
     const formatCards = document.querySelectorAll('.format-card');
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLiveA4Preview();
     });
 
+    autoCenterCheck.addEventListener('change', updateLiveA4Preview);
     showCutLinesCheck.addEventListener('change', updateLiveA4Preview);
     gapSpacesInput.addEventListener('input', updateLiveA4Preview);
     marginMmInput.addEventListener('input', updateLiveA4Preview);
@@ -253,6 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const rowGapPx = (parseFloat(rowGapMmSlider.value) || 8.0) * scalePxPerMm;
         const mode = layoutModeSelect.value;
         const showCutLines = showCutLinesCheck.checked;
+        const autoCenter = autoCenterCheck.checked;
+
+        if (autoCenter) {
+            a4GridContainer.style.justifyContent = 'center';
+            a4GridContainer.style.alignContent = 'center';
+        } else {
+            a4GridContainer.style.justifyContent = 'flex-start';
+            a4GridContainer.style.alignContent = 'flex-start';
+        }
 
         a4GridContainer.style.rowGap = `${rowGapPx}px`;
 
@@ -292,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
             itemEl.style.width = `${wPx}px`;
             itemEl.style.height = `${hPx}px`;
             
-            // Add right gap depending on pair position
             if (mode === 'pair_top_bot' && entry.is_pair_start) {
                 itemEl.style.marginRight = '8px'; // 7 spaces gap
             } else {
@@ -333,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rowGapMm = parseFloat(rowGapMmSlider.value) || 8.0;
         const marginMm = parseFloat(marginMmInput.value) || 12.7;
         const showCutLines = showCutLinesCheck.checked;
+        const autoCenter = autoCenterCheck.checked;
 
         const payload = {
             export_format: exportFormat,
@@ -342,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row_gap_mm: rowGapMm,
             margin_mm: marginMm,
             show_cut_lines: showCutLines,
+            auto_center: autoCenter,
             items: loadedItems.map(item => ({
                 file_id: item.file_id,
                 filename: item.filename,

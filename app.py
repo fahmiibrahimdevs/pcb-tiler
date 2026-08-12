@@ -69,7 +69,7 @@ def inspect_endpoint():
 @app.route('/api/generate', methods=['POST'])
 def generate_endpoint():
     """
-    Generates PDF or DOCX layout document with pair patterns, row gap, and dashed lines.
+    Generates PDF or DOCX layout document with pair patterns, row gap, dashed lines, and auto center/middle alignment.
     """
     try:
         data = request.get_json() or {}
@@ -81,6 +81,7 @@ def generate_endpoint():
         row_gap_mm = float(data.get('row_gap_mm', 8.0))
         margin_mm = float(data.get('margin_mm', 12.7))
         show_cut_lines = bool(data.get('show_cut_lines', True))
+        auto_center = bool(data.get('auto_center', True))
 
         items_config = data.get('items', [])
 
@@ -109,7 +110,6 @@ def generate_endpoint():
                 mirror=mirror
             )
 
-            # Use manual dimensions if provided and > 0, otherwise detected
             final_w = override_w if override_w > 0 else detected_w
             final_h = override_h if override_h > 0 else detected_h
 
@@ -130,7 +130,8 @@ def generate_endpoint():
                 row_gap_mm=row_gap_mm,
                 margin_mm=margin_mm,
                 layout_mode=layout_mode,
-                show_cut_lines=show_cut_lines
+                show_cut_lines=show_cut_lines,
+                auto_center=auto_center
             )
             return send_file(
                 io.BytesIO(docx_bytes),
@@ -146,7 +147,8 @@ def generate_endpoint():
                 row_gap_mm=row_gap_mm,
                 margin_mm=margin_mm,
                 layout_mode=layout_mode,
-                show_cut_lines=show_cut_lines
+                show_cut_lines=show_cut_lines,
+                auto_center=auto_center
             )
             return send_file(
                 io.BytesIO(pdf_bytes),

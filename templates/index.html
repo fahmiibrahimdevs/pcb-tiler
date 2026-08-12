@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCB Layout Tiler & Auto-Panelizer - Penata Layout PCB A4</title>
+    <meta name="description" content="Aplikasi Otomatisasi Penata Layout PCB Multiple Desain Siap Cetak (A4 1:1 Scale & DOCX/PDF Export)">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-header">
+        <div class="header-container">
+            <div class="header-brand">
+                <div class="brand-icon">⚡</div>
+                <div>
+                    <h1>PCB Layout Tiler & Auto-Panelizer</h1>
+                    <p>Otomatisasi Penataan Multiple Desain PCB ke Lembar A4 (Skala 1:1 Presisi Tinggi)</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span class="badge badge-success">A4 Narrow Margin</span>
+                <span class="badge badge-info">Multi-PDF Support</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar-panel">
+            <!-- Upload Dropzone -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📁 1. Unggah File PDF PCB</h2>
+                </div>
+                <div class="card-body">
+                    <div id="dropzone" class="upload-dropzone">
+                        <input type="file" id="pdfFileInput" accept="application/pdf" multiple class="file-input">
+                        <div class="dropzone-icon">📄</div>
+                        <div class="dropzone-text">
+                            <strong>Pilih atau Tarik File PDF Ke Sini</strong>
+                            <span>Dapat memilih sekaligus beberapa file (TOP & BOT PCB)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loaded Items Configuration List -->
+            <div id="itemsCard" class="card hidden">
+                <div class="card-header">
+                    <h2>🧩 2. Konfigurasi Desain PCB</h2>
+                </div>
+                <div class="card-body">
+                    <div id="itemsContainer" class="items-list">
+                        <!-- Dynamically populated PCB cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Layout Settings -->
+            <div id="settingsCard" class="card hidden">
+                <div class="card-header">
+                    <h2>⚙️ 3. Pengaturan Halaman A4 & Spasi</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="gapSpaces">Jarak Antar PCB (Banyak Spasi / Spacing):</label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="gapSpaces" value="7" min="1" max="30" class="form-control">
+                            <span class="suffix">Spasi (~5 mm)</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="marginMm">Margin Kertas A4 (Narrow):</label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="marginMm" value="12.7" step="0.1" min="0" max="30" class="form-control">
+                            <span class="suffix">mm (0.5 in)</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Format Export Dokumen:</label>
+                        <div class="format-selector">
+                            <label class="format-card active">
+                                <input type="radio" name="exportFormat" value="pdf" checked>
+                                <span class="format-title">PDF Siap Cetak (1:1)</span>
+                                <span class="format-desc">Presisi tinggi 300 DPI, langsung print</span>
+                            </label>
+                            <label class="format-card">
+                                <input type="radio" name="exportFormat" value="docx">
+                                <span class="format-title">Word Document (.docx)</span>
+                                <span class="format-desc">Margin Narrow, 7 spasi antar gambar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button id="btnGenerate" class="btn btn-primary btn-block">
+                        ⚡ Generate & Download Layout Dokumen
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Live Preview Area -->
+        <main class="preview-panel">
+            <div class="card full-height">
+                <div class="card-header flex-between">
+                    <h2>🖼️ Pratinjau Lembar Kertas A4 (Live Preview 1:1 Layout)</h2>
+                    <div class="page-stats">
+                        <span id="statCapacity" class="stat-tag">Kapasitas: 0 PCB / Lembar</span>
+                        <span id="statPageCount" class="stat-tag tag-blue">Total: 1 Halaman A4</span>
+                    </div>
+                </div>
+                <div class="card-body canvas-body">
+                    <!-- Empty State -->
+                    <div id="previewEmpty" class="preview-empty">
+                        <div class="empty-icon">🖨️</div>
+                        <h3>Belum Ada File PDF Dimuat</h3>
+                        <p>Silakan unggah satu atau beberapa file PDF PCB di sebelah kiri untuk melihat tata letak A4 otomatis.</p>
+                    </div>
+
+                    <!-- Live A4 Sheet Canvas -->
+                    <div id="a4PaperSheet" class="a4-paper-sheet hidden">
+                        <div class="a4-margin-box" id="a4MarginBox">
+                            <div class="a4-grid-container" id="a4GridContainer">
+                                <!-- Rendered PCB thumbnails tiled inside A4 canvas -->
+                            </div>
+                        </div>
+                        <div class="a4-watermark">KERTAS A4 (210 x 297 mm)</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
